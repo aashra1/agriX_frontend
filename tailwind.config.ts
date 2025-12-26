@@ -2,21 +2,21 @@ import type { Config } from 'tailwindcss';
 
 const config: Config = {
   content: [
-    './src/**/*.{js,ts,jsx,tsx,mdx}',
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
-      colors: {
-        'primary-green': '#0B3D0B',
-        'bg-splash': '#F5FFED',
-        'input-fill': 'rgba(233, 233, 233, 0.45)',
-      },
       fontFamily: {
-        crimsonPro: ['var(--font-crimson-pro)', 'serif'], 
+        crimsonpro: ['var(--font-crimson-pro)', 'serif'], 
+      },
+      colors: {
+        primaryGreen: '#0B3D0B',
+        lightBackground: '#F5FFED',
       },
     },
   },
   plugins: [],
 };
-
 export default config;

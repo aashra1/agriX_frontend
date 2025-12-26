@@ -1,4 +1,4 @@
-import './global.css';
+import './globals.css';
 import { Crimson_Pro } from 'next/font/google';
 
 const crimsonPro = Crimson_Pro({
@@ -7,13 +7,9 @@ const crimsonPro = Crimson_Pro({
   variable: '--font-crimson-pro',
 });
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={crimsonPro.variable}>
+    <html lang="en" className={`${crimsonPro.variable} font-crimsonpro`}>
       <body>{children}</body>
     </html>
   );

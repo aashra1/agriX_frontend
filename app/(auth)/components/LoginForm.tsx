@@ -91,7 +91,7 @@ export const LoginForm = () => {
       <InputField
         name="username"
         label="Username"
-        iconPath="/assets/icons/user.png"
+        iconPath="/icons/user.png"
         error={errors.username?.message}
       />
 
@@ -99,7 +99,7 @@ export const LoginForm = () => {
         name="password"
         label="Password"
         type="password"
-        iconPath="/assets/icons/password.png"
+        iconPath="/icons/password.png"
         error={errors.password?.message}
       />
 
