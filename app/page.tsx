@@ -1,45 +1,49 @@
-
 'use client';
 
-import Image from "next/image";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Metadata } from 'next';
+import Link from "next/link";
 
+export default function LandingPage() {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-green-50 px-4">
+            {/* Logo */}
+            <div className="pt-12 mb-8">
+                <img
+                    src="/images/logo-2.png"
+                    alt="Agrix Logo"
+                    className="w-24 h-auto"
+                />
+            </div>
 
-const SPLASH_DURATION_MS = 1500; 
+            {/* Hero Text */}
+            <div className="text-center max-w-xl">
+                <h1 className="text-5xl md:text-6xl font-semibold mb-6 font-crimsonpro">
+                    Welcome to Agrix
+                </h1>
+                <p className="text-xl text-gray-700 mb-10">
+                    Connecting farmers, customers, and businesses with ease. 
+                    Join us and grow with Agrix.
+                </p>
+            </div>
 
-export default function SplashPage() {
-  const router = useRouter();
+            {/* Buttons */}
+            <div className="flex flex-col md:flex-row gap-4">
+                <Link
+                    href="/signup"
+                    className="px-10 py-4 text-xl font-medium rounded-xl bg-[#0B3D0B] text-white hover:bg-green-900 transition"
+                >
+                    Signup
+                </Link>
+                <Link
+                    href="/login"
+                    className="px-10 py-4 text-xl font-medium rounded-xl border border-[#0B3D0B] text-[#0B3D0B] hover:bg-gray-100 transition"
+                >
+                    Login
+                </Link>
+            </div>
 
-  useEffect(() => {
-    const token = localStorage.getItem('agrix_token');
-    
-    const nextRoute = token ? '/auth/dashboard' : '/login';
-
-    const timer = setTimeout(() => {
-      router.push(nextRoute);
-    }, SPLASH_DURATION_MS);
-
-    return () => clearTimeout(timer);
-  }, [router]);
-
-  return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#F5FFED' }}>
-      <main className="flex flex-col items-center justify-center p-8">
-        
-        <Image
-          src="/images/logo-2.png" 
-          alt="Agrix Logo"
-          width={150} 
-          height={150}
-          priority
-          className="animate-pulse"
-        />
-        <h1 className="mt-4 text-4xl font-bold font-crimsonPro text-[#0B3D0B]">
-          AGRIX
-        </h1>
-      </main>
-    </div>
-  );
+            <div className="mt-16 text-gray-500 text-sm">
+                &copy; {new Date().getFullYear()} Agrix. All rights reserved.
+            </div>
+        </div>
+    );
 }
