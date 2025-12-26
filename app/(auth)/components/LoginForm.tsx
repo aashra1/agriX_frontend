@@ -34,12 +34,10 @@ export const LoginForm = () => {
       const result = await response.json();
 
       if (!response.ok || result.success === false) {
-        // Handle 401 (Invalid credentials) or 404 (User does not exist)
         setError(result.message || 'Login failed. Please check your credentials.');
         return;
       }
 
-      // Success: Store token (e.g., in localStorage or cookies) and redirect
       localStorage.setItem('agrix_token', result.token);
       window.location.href = '/auth/dashboard';
 
@@ -50,7 +48,6 @@ export const LoginForm = () => {
     }
   };
   
-  // InputField component (as before, for clean UI)
   const InputField = ({ name, label, type = 'text', iconPath, error }: {
     name: keyof LoginFields;
     label: string;
@@ -77,7 +74,7 @@ export const LoginForm = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-sm mx-auto p-6 md:p-8">
       <div className="flex justify-center mb-8">
-        <img src="/assets/images/logo-2.png" alt="Agrix Logo" className="w-20 h-auto" />
+        <img src="/images/logo-2.png" alt="Agrix Logo" className="w-20 h-auto" />
       </div>
 
       <h1 className="text-4xl md:text-5xl font-semibold text-center font-crimsonPro">Welcome Back</h1>
