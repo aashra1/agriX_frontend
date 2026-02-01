@@ -4,6 +4,7 @@ export const API = {
   USER: {
     REGISTER: "/api/user/register",
     LOGIN: "/api/user/login",
+    GET_PROFILE: (id: string) => `/api/user/${id}`,
   },
   BUSINESS: {
     REGISTER: "/api/business/register",
