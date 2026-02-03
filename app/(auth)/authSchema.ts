@@ -12,6 +12,7 @@ export const RegisterSchema = z.object({
   phoneNumber: z.string().min(10, "Phone number must be 10 digits"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   address: z.string().optional(),
+  profilePicture: z.any().optional(), 
 });
 
 export type RegisterFields = z.infer<typeof RegisterSchema>;

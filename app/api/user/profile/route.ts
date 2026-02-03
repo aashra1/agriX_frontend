@@ -73,15 +73,14 @@ export async function PUT(req: Request) {
       );
     }
 
-    const body = await req.json();
+    const formData = await req.formData();
 
     const res = await fetch(`${BASE}${API.USER.GET_PROFILE(userId)}`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: formData,
       cache: "no-store",
     });
 

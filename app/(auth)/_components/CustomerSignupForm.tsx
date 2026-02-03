@@ -71,18 +71,15 @@ export const CustomerRegisterForm = ({
     try {
       const formData = new FormData();
 
-      Object.keys(data).forEach((key) => {
-        if (key !== "profilePicture") {
-          const value = data[key as keyof RegisterFields];
-          if (value) formData.append(key, value as string);
-        }
-      });
+      formData.append("fullName", data.fullName);
+      formData.append("email", data.email);
+      formData.append("phoneNumber", data.phoneNumber);
+      formData.append("password", data.password);
+      if (data.address) formData.append("address", data.address);
 
-      if (data["profilePicture" as keyof RegisterFields]?.[0]) {
-        formData.append(
-          "profilePicture",
-          (data["profilePicture" as keyof RegisterFields] as any)[0],
-        );
+      const fileInput = (data as any).profilePicture;
+      if (fileInput && fileInput[0]) {
+        formData.append("profilePicture", fileInput[0]);
       }
 
       const res = await handleRegister(formData as any);
@@ -249,7 +246,7 @@ export const CustomerRegisterForm = ({
             label={field.label}
             type={field.type}
             iconPath={field.iconPath}
-            error={errors[field.name]?.message}
+            error={(errors as any)[field.name]?.message}
           />
         ))}
 
@@ -267,7 +264,7 @@ export const CustomerRegisterForm = ({
           name="address"
           label="Address (Optional)"
           iconPath="/icons/address.png"
-          error={errors.address?.message}
+          error={(errors as any).address?.message}
         />
 
         <button

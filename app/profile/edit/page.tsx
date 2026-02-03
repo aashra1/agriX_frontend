@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { ArrowLeft, User, Mail, Phone, MapPin, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { setUserData } from "@/lib/cookie"; // Import your server action
+import { setUserData } from "@/lib/cookie";
 
 export default function EditProfilePage() {
   const { user, loading: authLoading, setUser } = useAuth();
