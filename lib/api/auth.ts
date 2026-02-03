@@ -1,9 +1,13 @@
 import axiosInstance from "./axios";
 import { API } from "./endpoints";
 
-export const registerUser = async (registerData: any) => {
+export const registerUser = async (registerData: FormData) => {
   try {
-    const response = await axiosInstance.post(API.USER.REGISTER, registerData);
+    const response = await axiosInstance.post(API.USER.REGISTER, registerData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
     return response.data;
   } catch (err: any) {
     throw err;

@@ -18,6 +18,8 @@ export default function ProfilePage() {
   if (loading)
     return <div className="flex justify-center p-20">Loading...</div>;
 
+  const displayName = user?.fullName || user?.name || "Guest";
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 font-serif">
       <div className="flex items-center gap-4 mb-10">
@@ -25,7 +27,7 @@ export default function ProfilePage() {
           <User size={32} className="text-gray-500" />
         </div>
         <h1 className="text-2xl font-semibold text-gray-800">
-          Hello, {user?.fullName?.split(" ")[0] || "Guest"}
+          Hello, {displayName.split(" ")[0]}
         </h1>
       </div>
 

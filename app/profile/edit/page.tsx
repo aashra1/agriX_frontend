@@ -4,9 +4,10 @@ import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { ArrowLeft, User, Mail, Phone, MapPin, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { setUserData } from "@/lib/cookie"; // Import your server action
 
 export default function EditProfilePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, setUser } = useAuth();
   const router = useRouter();
   const [updating, setUpdating] = useState(false);
 
@@ -49,9 +50,14 @@ export default function EditProfilePage() {
 
       if (res.ok) {
         const result = await res.json();
+        const updatedUser = result.updatedUser || result;
 
-        if (result.updatedUser) {
-          setUser(result.updatedUser);
+        if (updatedUser) {
+          // 1. Update React State (Immediate UI change)
+          setUser(updatedUser);
+
+          // 2. Update Cookie (Persistence across refresh/navigation)
+          await setUserData(updatedUser);
         }
 
         alert("Profile updated!");
@@ -167,7 +173,4 @@ export default function EditProfilePage() {
       </form>
     </div>
   );
-}
-function setUser(updatedUser: any) {
-  throw new Error("Function not implemented.");
 }
