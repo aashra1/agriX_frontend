@@ -1,15 +1,19 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { useState, useEffect } from "react";
-import { ArrowLeft, User, Mail, Phone, MapPin, Info } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ArrowLeft, User, Mail, Phone, MapPin, Camera } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { setUserData } from "@/lib/cookie";
 
 export default function EditProfilePage() {
   const { user, loading: authLoading, setUser } = useAuth();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [updating, setUpdating] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -17,6 +21,9 @@ export default function EditProfilePage() {
     phoneNumber: "",
     address: "",
   });
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
 
   useEffect(() => {
     if (user) {
@@ -26,26 +33,38 @@ export default function EditProfilePage() {
         phoneNumber: user.phoneNumber || "",
         address: user.address || "",
       });
+      if (user.profilePicture) {
+        setPreviewUrl(`${baseUrl}/${user.profilePicture.replace(/^\//, "")}`);
+      }
     }
-  }, [user]);
+  }, [user, baseUrl]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setUpdating(true);
 
     try {
-      const updateData = {
-        fullName: formData.fullName,
-        phoneNumber: formData.phoneNumber,
-        address: formData.address,
-      };
+      const data = new FormData();
+      data.append("fullName", formData.fullName);
+      data.append("phoneNumber", formData.phoneNumber);
+      data.append("address", formData.address);
 
+      if (selectedFile) {
+        data.append("profilePicture", selectedFile);
+      }
+
+      // Note: Use FormData, remove 'Content-Type' header so browser sets boundary automatically
       const res = await fetch(`/api/user/profile?id=${user?._id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updateData),
+        body: data,
       });
 
       if (res.ok) {
@@ -53,10 +72,7 @@ export default function EditProfilePage() {
         const updatedUser = result.updatedUser || result;
 
         if (updatedUser) {
-          // 1. Update React State (Immediate UI change)
           setUser(updatedUser);
-
-          // 2. Update Cookie (Persistence across refresh/navigation)
           await setUserData(updatedUser);
         }
 
@@ -88,19 +104,40 @@ export default function EditProfilePage() {
       </button>
 
       <div className="flex flex-col items-center mb-10">
-        <div className="relative w-36 h-36 bg-[#F1F9E9] rounded-full flex items-center justify-center">
-          <div className="text-[#6B8E23]">
-            <User size={80} strokeWidth={1.5} />
+        <div
+          className="relative w-36 h-36 bg-[#F1F9E9] rounded-full flex items-center justify-center cursor-pointer group"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center border-2 border-[#6B8E23]/20">
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User size={80} className="text-[#6B8E23]" strokeWidth={1.5} />
+            )}
           </div>
-          <div className="absolute bottom-2 right-2 bg-[#6B8E23] text-white rounded-full p-2 border-4 border-white shadow-sm">
-            <Info size={20} />
+
+          <div className="absolute bottom-1 right-1 bg-[#6B8E23] text-white rounded-full p-2 border-4 border-white shadow-md group-hover:scale-110 transition-transform">
+            <Camera size={20} />
           </div>
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept="image/*"
+          />
         </div>
+
         <h1 className="text-4xl font-bold mt-6 text-gray-900">
           Edit your details
         </h1>
         <p className="text-gray-500 text-xl mt-2 text-center">
-          Enter your details to update your profile
+          Tap the photo to change it
         </p>
       </div>
 
