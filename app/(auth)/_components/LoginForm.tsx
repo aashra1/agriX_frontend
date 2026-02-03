@@ -27,14 +27,17 @@ export const LoginForm = () => {
     setError("");
     try {
       const res = await handleLogin(data);
+
       if (!res.success) {
         throw new Error(res.message || "Login Failed");
       }
 
-      //   await checkAuth();
-      // handle transition
       startTransition(() => {
-        router.push("/auth/dashboard");
+        if (res.user?.role === "Admin") {
+          router.push("/admin");
+        } else {
+          router.push("/auth/dashboard");
+        }
       });
     } catch (err: any) {
       setError(err.message || "Login Failed");

@@ -8,6 +8,7 @@ import {
   Check,
   X,
   ArrowLeft,
+  RefreshCw,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -16,152 +17,437 @@ export default function AdminDashboard() {
   );
   const [users, setUsers] = useState<any[]>([]);
   const [businesses, setBusinesses] = useState<any[]>([]);
+  const [loading, setLoading] = useState({
+    users: false,
+    businesses: false,
+  });
+
+  const fetchUsers = async () => {
+    setLoading((prev) => ({ ...prev, users: true }));
+    try {
+      const res = await fetch("/api/user");
+      const data = await res.json();
+      if (data.success) {
+        setUsers(data.users);
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    } finally {
+      setLoading((prev) => ({ ...prev, users: false }));
+    }
+  };
+
+  const fetchBusinesses = async () => {
+    setLoading((prev) => ({ ...prev, businesses: true }));
+    try {
+      const res = await fetch("/api/business/admin/all");
+      const data = await res.json();
+      if (data.success) {
+        setBusinesses(data.businesses);
+      }
+    } catch (error) {
+      console.error("Error fetching businesses:", error);
+    } finally {
+      setLoading((prev) => ({ ...prev, businesses: false }));
+    }
+  };
 
   useEffect(() => {
-    fetch("/api/users")
-      .then((res) => res.json())
-      .then((data) => setUsers(data));
-    fetch("/api/business/admin/all")
-      .then((res) => res.json())
-      .then((data) => setBusinesses(data));
+    fetchUsers();
+    fetchBusinesses();
   }, []);
 
   const handleApprove = async (id: string) => {
-    const res = await fetch(`/api/business/admin/approve/${id}`, {
-      method: "PUT",
-    });
-    if (res.ok) {
-      setBusinesses(
-        businesses.map((b) => (b._id === id ? { ...b, isVerified: true } : b)),
-      );
+    try {
+      const res = await fetch(`/api/business/admin/approve/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "approve" }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setBusinesses(
+            businesses.map((b) =>
+              b._id === id ? { ...b, isVerified: true } : b,
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error approving business:", error);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      const res = await fetch(`/api/business/admin/approve/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "reject" }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setBusinesses(businesses.filter((b) => b._id !== id));
+        }
+      }
+    } catch (error) {
+      console.error("Error rejecting business:", error);
     }
   };
 
   if (view === "users")
     return (
-      <div className="max-w-4xl mx-auto px-4 py-10 font-serif">
-        <button
-          onClick={() => setView("overview")}
-          className="flex items-center gap-2 text-emerald-900 mb-6"
-        >
-          <ArrowLeft size={18} /> Back
-        </button>
+      <div className="max-w-6xl mx-auto px-4 py-10 font-serif">
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => setView("overview")}
+            className="flex items-center gap-2 text-emerald-900 hover:text-emerald-700"
+          >
+            <ArrowLeft size={18} /> Back to Dashboard
+          </button>
+          <button
+            onClick={fetchUsers}
+            disabled={loading.users}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+          >
+            <RefreshCw
+              size={16}
+              className={loading.users ? "animate-spin" : ""}
+            />
+            Refresh
+          </button>
+        </div>
+
         <h2 className="text-2xl font-semibold mb-6">All Users</h2>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-gray-100 text-gray-400 text-sm uppercase">
-              <th className="py-3 font-medium">Name</th>
-              <th className="py-3 font-medium">Email</th>
-              <th className="py-3 font-medium">Joined</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u._id} className="border-b border-gray-50 text-gray-800">
-                <td className="py-4">{u.fullName}</td>
-                <td className="py-4">{u.email}</td>
-                <td className="py-4 text-sm text-gray-500">
-                  {new Date(u.createdAt).toLocaleDateString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-gray-50">
+                <tr className="border-b border-gray-200">
+                  <th className="py-4 px-6 font-medium text-gray-700">Name</th>
+                  <th className="py-4 px-6 font-medium text-gray-700">Email</th>
+                  <th className="py-4 px-6 font-medium text-gray-700">Phone</th>
+                  <th className="py-4 px-6 font-medium text-gray-700">Role</th>
+                  <th className="py-4 px-6 font-medium text-gray-700">
+                    Joined
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading.users ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-gray-500">
+                      Loading users...
+                    </td>
+                  </tr>
+                ) : users.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-gray-500">
+                      No users found
+                    </td>
+                  </tr>
+                ) : (
+                  users.map((u) => (
+                    <tr
+                      key={u._id}
+                      className="border-b border-gray-100 hover:bg-gray-50"
+                    >
+                      <td className="py-4 px-6">{u.fullName}</td>
+                      <td className="py-4 px-6">{u.email}</td>
+                      <td className="py-4 px-6">{u.phoneNumber}</td>
+                      <td className="py-4 px-6">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            u.role === "Admin"
+                              ? "bg-purple-100 text-purple-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-gray-500">
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     );
 
   if (view === "business")
     return (
-      <div className="max-w-4xl mx-auto px-4 py-10 font-serif">
-        <button
-          onClick={() => setView("overview")}
-          className="flex items-center gap-2 text-emerald-900 mb-6"
-        >
-          <ArrowLeft size={18} /> Back
-        </button>
+      <div className="max-w-6xl mx-auto px-4 py-10 font-serif">
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => setView("overview")}
+            className="flex items-center gap-2 text-emerald-900 hover:text-emerald-700"
+          >
+            <ArrowLeft size={18} /> Back to Dashboard
+          </button>
+          <button
+            onClick={fetchBusinesses}
+            disabled={loading.businesses}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+          >
+            <RefreshCw
+              size={16}
+              className={loading.businesses ? "animate-spin" : ""}
+            />
+            Refresh
+          </button>
+        </div>
+
         <h2 className="text-2xl font-semibold mb-6">Business Verifications</h2>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-gray-100 text-gray-400 text-sm uppercase">
-              <th className="py-3 font-medium">Business Name</th>
-              <th className="py-3 font-medium">Status</th>
-              <th className="py-3 font-medium text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {businesses.map((b) => (
-              <tr key={b._id} className="border-b border-gray-50 text-gray-800">
-                <td className="py-4 font-medium">{b.businessName}</td>
-                <td className="py-4">
-                  {b.isVerified ? (
-                    <span className="text-emerald-700 bg-emerald-50 px-2 py-1 rounded text-xs">
-                      Approved
-                    </span>
-                  ) : (
-                    <span className="text-amber-700 bg-amber-50 px-2 py-1 rounded text-xs">
-                      Pending
-                    </span>
-                  )}
-                </td>
-                <td className="py-4 text-right">
-                  {!b.isVerified ? (
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => handleApprove(b._id)}
-                        className="p-1 hover:bg-emerald-50 text-emerald-900 rounded"
-                      >
-                        <Check size={20} />
-                      </button>
-                      <button className="p-1 hover:bg-red-50 text-red-600 rounded">
-                        <X size={20} />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-gray-400 italic text-sm text-right px-2">
-                      Verified
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-gray-50">
+                <tr className="border-b border-gray-200">
+                  <th className="py-4 px-6 font-medium text-gray-700">
+                    Business Name
+                  </th>
+                  <th className="py-4 px-6 font-medium text-gray-700">Email</th>
+                  <th className="py-4 px-6 font-medium text-gray-700">Owner</th>
+                  <th className="py-4 px-6 font-medium text-gray-700">
+                    Status
+                  </th>
+                  <th className="py-4 px-6 font-medium text-gray-700 text-right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading.businesses ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-gray-500">
+                      Loading businesses...
+                    </td>
+                  </tr>
+                ) : businesses.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-gray-500">
+                      No businesses found
+                    </td>
+                  </tr>
+                ) : (
+                  businesses.map((b) => (
+                    <tr
+                      key={b._id}
+                      className="border-b border-gray-100 hover:bg-gray-50"
+                    >
+                      <td className="py-4 px-6 font-medium">
+                        {b.businessName}
+                      </td>
+                      <td className="py-4 px-6">{b.email}</td>
+                      <td className="py-4 px-6">{b.ownerName}</td>
+                      <td className="py-4 px-6">
+                        {b.isVerified ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                            Approved
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        {!b.isVerified ? (
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleApprove(b._id)}
+                              className="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700 transition"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleReject(b._id)}
+                              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">
+                            Verified
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     );
 
+  const pendingBusinesses = businesses.filter((b) => !b.isVerified).length;
+  const totalBusinesses = businesses.length;
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10 font-serif">
+    <div className="max-w-4xl mx-auto px-4 py-10 font-serif">
       <div className="flex items-center gap-4 mb-10">
         <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center">
           <ShieldCheck size={32} className="text-emerald-900" />
         </div>
-        <h1 className="text-2xl font-semibold text-gray-800">
-          Admin Dashboard
-        </h1>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-800">
+            Admin Dashboard
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Manage users and business verifications
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         <div
           onClick={() => setView("users")}
-          className="p-6 bg-gray-50 rounded-xl text-center cursor-pointer hover:bg-emerald-50 transition border border-transparent hover:border-emerald-100"
+          className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 text-center cursor-pointer hover:shadow-md hover:border-emerald-200 transition"
         >
-          <Users size={28} className="text-emerald-900 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-gray-800">{users.length}</div>
-          <div className="text-sm text-emerald-900 font-medium">
+          <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Users size={24} className="text-emerald-900" />
+          </div>
+          <div className="text-3xl font-bold text-gray-800 mb-2">
+            {users.length}
+          </div>
+          <div className="text-lg text-emerald-900 font-medium">
             Total Users
           </div>
+          <p className="text-sm text-gray-500 mt-2">Click to view all users</p>
         </div>
 
         <div
           onClick={() => setView("business")}
-          className="p-6 bg-gray-50 rounded-xl text-center cursor-pointer hover:bg-emerald-50 transition border border-transparent hover:border-emerald-100"
+          className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 text-center cursor-pointer hover:shadow-md hover:border-emerald-200 transition"
         >
-          <Building2 size={28} className="text-emerald-900 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-gray-800">
-            {businesses.length}
+          <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building2 size={24} className="text-emerald-900" />
           </div>
-          <div className="text-sm text-emerald-900 font-medium">
+          <div className="text-3xl font-bold text-gray-800 mb-2">
+            {totalBusinesses}
+          </div>
+          <div className="text-lg text-emerald-900 font-medium">
             Total Businesses
+          </div>
+          <div className="mt-2">
+            {pendingBusinesses > 0 ? (
+              <span className="inline-block px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded-full">
+                {pendingBusinesses} pending approval
+              </span>
+            ) : (
+              <span className="text-sm text-gray-500">
+                All businesses verified
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {pendingBusinesses > 0 && (
+        <div className="mb-10 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                <Building2 size={20} className="text-amber-800" />
+              </div>
+              <div>
+                <h3 className="font-medium text-amber-900">
+                  Pending Approvals
+                </h3>
+                <p className="text-sm text-amber-700">
+                  You have {pendingBusinesses} business {pendingBusinesses}{" "}
+                  business{pendingBusinesses !== 1 ? "es" : ""} waiting for
+                  approval
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setView("business")}
+              className="px-4 py-2 bg-amber-600 text-white text-sm rounded hover:bg-amber-700 transition"
+            >
+              Review Now
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-5 bg-gray-50 rounded-lg">
+          <h3 className="font-medium text-gray-700 mb-2">Quick Stats</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Admins:</span>
+              <span className="font-medium">
+                {users.filter((u) => u.isAdmin).length}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">Regular Users:</span>
+              <span className="font-medium">
+                {users.filter((u) => !u.isAdmin).length}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">
+                Verified Businesses:
+              </span>
+              <span className="font-medium">
+                {businesses.filter((b) => b.isVerified).length}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 bg-gray-50 rounded-lg">
+          <h3 className="font-medium text-gray-700 mb-2">Recent Users</h3>
+          <div className="space-y-2">
+            {users.slice(0, 3).map((user) => (
+              <div key={user._id} className="flex items-center justify-between">
+                <span className="text-sm truncate">{user.fullName}</span>
+                <span className="text-xs text-gray-500">
+                  {new Date(user.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-5 bg-gray-50 rounded-lg">
+          <h3 className="font-medium text-gray-700 mb-2">Recent Businesses</h3>
+          <div className="space-y-2">
+            {businesses.slice(0, 3).map((business) => (
+              <div
+                key={business._id}
+                className="flex items-center justify-between"
+              >
+                <span className="text-sm truncate">
+                  {business.businessName}
+                </span>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded ${business.isVerified ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}
+                >
+                  {business.isVerified ? "✓" : "⏱"}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
