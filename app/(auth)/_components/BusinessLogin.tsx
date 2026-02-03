@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import Link from 'next/link';
-import { useState, useEffect, useCallback } from 'react';
-import { LoginFields, LoginSchema } from '../authSchema';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
+import { LoginFields, LoginSchema } from "../authSchema";
+import { handleBusinessLogin } from "@/lib/actions/business-actions";
 
 type SnackbarState = {
   message: string;
@@ -14,9 +15,16 @@ type SnackbarState = {
 export const BusinessLoginForm = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState<SnackbarState>({ message: "", type: null });
+  const [snackbar, setSnackbar] = useState<SnackbarState>({
+    message: "",
+    type: null,
+  });
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFields>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFields>({
     resolver: zodResolver(LoginSchema),
   });
 
@@ -37,53 +45,39 @@ export const BusinessLoginForm = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/business/login', {
-        method: 'POST',
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      const res = await handleBusinessLogin(data);
+
+      if (!res.success) {
+        setError(res.message);
+        setSnackbar({ message: res.message, type: "error" });
+        setIsLoading(false);
+        return;
+      }
+
+      setSnackbar({
+        message: "Login successful! Redirecting...",
+        type: "success",
       });
 
-      const result = await response.json();
-
-      // Handle backend errors
-      if (!response.ok || !result.success) {
-        let errorMessage = result.message || "Login failed. Please check your credentials.";
-
-        // Friendly message for unverified businesses
-        if (errorMessage.toLowerCase().includes("user does not exist") || errorMessage.toLowerCase().includes("not verified")) {
-          errorMessage = "Your business is not verified yet. Please upload your document and wait for admin approval.";
-        }
-
-        setSnackbar({ message: errorMessage, type: "error" });
-        setError(errorMessage);
-        setIsLoading(false);
-        return;
-      }
-
-      // Check if business is approved
-      if (result.businessStatus?.trim().toLowerCase() !== "approved") {
-        const msg = "Your business is not verified yet. Please upload your document and wait for admin approval.";
-        setSnackbar({ message: msg, type: "error" });
-        setIsLoading(false);
-        return;
-      }
-
-      // Successful login
-      localStorage.setItem('business_token', result.token);
-      setSnackbar({ message: "Login successful! Redirecting to dashboard...", type: "success" });
-
       setTimeout(() => {
-        window.location.href = '/auth/dashboard';
+        window.location.href = "/auth/dashboard";
       }, 1500);
-
     } catch (err: any) {
-      setSnackbar({ message: "A network error occurred. Please try again.", type: "error" });
-      setError(null);
+      setSnackbar({
+        message: "A network error occurred.",
+        type: "error",
+      });
       setIsLoading(false);
     }
   };
 
-  const InputField = ({ name, label, type = 'text', iconPath, error }: {
+  const InputField = ({
+    name,
+    label,
+    type = "text",
+    iconPath,
+    error,
+  }: {
     name: keyof LoginFields;
     label: string;
     type?: string;
@@ -91,7 +85,9 @@ export const BusinessLoginForm = () => {
     error: string | undefined;
   }) => (
     <div className="mb-6">
-      <div className={`flex items-center rounded-xl bg-gray-200/45 ${error ? 'border border-red-500' : ''}`}>
+      <div
+        className={`flex items-center rounded-xl bg-gray-200/45 ${error ? "border border-red-500" : ""}`}
+      >
         <div className="p-3">
           <img src={iconPath} alt={label} className="w-6 h-6 object-contain" />
         </div>
@@ -102,25 +98,40 @@ export const BusinessLoginForm = () => {
           className="w-full py-3 pr-5 bg-transparent text-lg placeholder:text-[#777777] focus:outline-none font-crimsonPro font-normal"
         />
       </div>
-      {error && <p className="text-red-500 text-sm mt-1 font-crimsonPro font-normal">{error}</p>}
+      {error && (
+        <p className="text-red-500 text-sm mt-1 font-crimsonPro font-normal">
+          {error}
+        </p>
+      )}
     </div>
   );
 
   const Snackbar = ({ message, type }: SnackbarState) => {
     if (!type) return null;
-    const baseClasses = "fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg z-50 transition-opacity duration-300 font-crimsonPro font-medium";
-    const colorClasses = type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white";
+    const baseClasses =
+      "fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg z-50 transition-opacity duration-300 font-crimsonPro font-medium";
+    const colorClasses =
+      type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white";
     return <div className={`${baseClasses} ${colorClasses}`}>{message}</div>;
   };
 
   return (
     <>
-      <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-sm mx-auto p-6 md:p-8">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="w-full max-w-sm mx-auto p-6 md:p-8"
+      >
         <div className="flex justify-center mb-8">
-          <img src="/images/logo-2.png" alt="Agrix Logo" className="w-20 h-auto" />
+          <img
+            src="/images/logo-2.png"
+            alt="Agrix Logo"
+            className="w-20 h-auto"
+          />
         </div>
 
-        <h1 className="text-4xl md:text-5xl font-semibold text-center font-crimsonPro">Business Login</h1>
+        <h1 className="text-4xl md:text-5xl font-semibold text-center font-crimsonPro">
+          Business Login
+        </h1>
         <p className="text-xl text-[#777777] font-normal text-center mb-10 font-crimsonPro">
           Enter your business credentials
         </p>
@@ -131,26 +142,51 @@ export const BusinessLoginForm = () => {
           </div>
         )}
 
-        <InputField name="username" label="Username" iconPath="/icons/user.png" error={errors.username?.message} />
-        <InputField name="password" label="Password" type="password" iconPath="/icons/password.png" error={errors.password?.message} />
+        <InputField
+          name="email"
+          label="email"
+          iconPath="/icons/user.png"
+          error={errors.email?.message}
+        />
+        <InputField
+          name="password"
+          label="Password"
+          type="password"
+          iconPath="/icons/password.png"
+          error={errors.password?.message}
+        />
 
         <div className="text-right mb-8">
-          <Link href="#" className="text-red-600 text-base font-crimsonPro font-normal hover:underline">Forgot password?</Link>
+          <Link
+            href="#"
+            className="text-red-600 text-base font-crimsonPro font-normal hover:underline"
+          >
+            Forgot password?
+          </Link>
         </div>
 
         <button
           type="submit"
           disabled={isLoading}
           className={`w-full md:w-64 mx-auto block py-3 text-white text-2xl font-normal rounded-xl transition font-crimsonPro ${
-            isLoading ? 'bg-gray-500 cursor-not-allowed' : 'bg-[#0B3D0B] hover:bg-green-900'
+            isLoading
+              ? "bg-gray-500 cursor-not-allowed"
+              : "bg-[#0B3D0B] hover:bg-green-900"
           }`}
         >
-          {isLoading ? 'Logging in...' : 'Login'}
+          {isLoading ? "Logging in..." : "Login"}
         </button>
 
         <div className="flex justify-center mt-6 text-lg font-crimsonPro">
-          <span className="text-gray-500 font-normal">Don't have a business account?</span>
-          <Link href="/signup" className="text-red-600 font-medium ml-2 hover:underline">Signup!</Link>
+          <span className="text-gray-500 font-normal">
+            Don't have a business account?
+          </span>
+          <Link
+            href="/signup"
+            className="text-red-600 font-medium ml-2 hover:underline"
+          >
+            Signup!
+          </Link>
         </div>
       </form>
 
