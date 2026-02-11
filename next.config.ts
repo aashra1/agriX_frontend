@@ -1,13 +1,14 @@
-// next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async rewrites() {
-    return [
+  images: {
+    remotePatterns: [
       {
-        source: '/api/:path*',
-        destination: 'http://localhost:5001/api/:path*', 
+        protocol: "http",
+        hostname: "localhost",
+        port: "5001",
+        pathname: "/uploads/**",
       },
-    ];
+    ],
   },
 };
 
