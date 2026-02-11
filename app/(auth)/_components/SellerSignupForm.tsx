@@ -34,14 +34,26 @@ export const BusinessRegisterForm = ({
     type: null,
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<BusinessRegisterFields>({
     resolver: zodResolver(BusinessRegisterSchema),
   });
+
+  const profilePicFile = watch("profilePicture" as any);
+
+  useEffect(() => {
+    if (profilePicFile && profilePicFile[0]) {
+      const url = URL.createObjectURL(profilePicFile[0]);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+  }, [profilePicFile]);
 
   const hideSnackbar = useCallback(() => {
     const timer = setTimeout(() => {
@@ -60,7 +72,19 @@ export const BusinessRegisterForm = ({
     setIsLoading(true);
 
     try {
-      const res = await handleBusinessRegister(data);
+      const formData = new FormData();
+      formData.append("businessName", data.businessName);
+      formData.append("email", data.email);
+      formData.append("phoneNumber", data.phoneNumber);
+      formData.append("password", data.password);
+      if (data.address) formData.append("address", data.address);
+
+      const fileInput = (data as any).profilePicture;
+      if (fileInput && fileInput[0]) {
+        formData.append("profilePicture", fileInput[0]);
+      }
+
+      const res = await handleBusinessRegister(formData as any);
 
       if (!res.success) {
         setError(res.message);
@@ -188,6 +212,33 @@ export const BusinessRegisterForm = ({
           &larr; Back to Role Selection
         </button>
 
+        <div className="flex flex-col items-center mb-6">
+          <div className="relative w-24 h-24 rounded-full bg-gray-200 overflow-hidden border-2 border-[#0B3D0B]">
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img
+                src="/icons/user.png"
+                alt="Placeholder"
+                className="w-full h-full p-4 object-contain opacity-50"
+              />
+            )}
+          </div>
+          <label className="mt-2 text-[#0B3D0B] font-crimsonpro font-medium cursor-pointer hover:underline text-sm">
+            Upload Brand Logo / Profile
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              {...register("profilePicture" as any)}
+            />
+          </label>
+        </div>
+
         {error && (
           <div className="p-3 mb-4 text-red-700 bg-red-100 border border-red-200 rounded-lg text-center font-normal font-crimsonpro">
             {error}
@@ -246,7 +297,6 @@ export const BusinessRegisterForm = ({
           </Link>
         </div>
       </form>
-
       <Snackbar message={snackbar.message} type={snackbar.type} />
     </>
   );

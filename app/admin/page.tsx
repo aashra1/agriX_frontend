@@ -1,17 +1,20 @@
 "use client";
 
+import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Users,
   Building2,
   ShieldCheck,
-  Check,
-  X,
   ArrowLeft,
   RefreshCw,
+  LogOut,
 } from "lucide-react";
 
 export default function AdminDashboard() {
+  const { logout } = useAuth();
+  const router = useRouter();
   const [view, setView] = useState<"overview" | "users" | "business">(
     "overview",
   );
@@ -25,10 +28,10 @@ export default function AdminDashboard() {
   const fetchUsers = async () => {
     setLoading((prev) => ({ ...prev, users: true }));
     try {
-      const res = await fetch("/api/user");
+      const res = await fetch("/api/admin/users", { cache: "no-store" });
       const data = await res.json();
       if (data.success) {
-        setUsers(data.users);
+        setUsers(data.users || data.data || []);
       }
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -40,10 +43,10 @@ export default function AdminDashboard() {
   const fetchBusinesses = async () => {
     setLoading((prev) => ({ ...prev, businesses: true }));
     try {
-      const res = await fetch("/api/business/admin/all");
+      const res = await fetch("/api/admin/businesses", { cache: "no-store" });
       const data = await res.json();
       if (data.success) {
-        setBusinesses(data.businesses);
+        setBusinesses(data.businesses || data.data || []);
       }
     } catch (error) {
       console.error("Error fetching businesses:", error);
@@ -59,39 +62,40 @@ export default function AdminDashboard() {
 
   const handleApprove = async (id: string) => {
     try {
+      // Note: Removed useAuth().getToken() because cookies handle this
       const res = await fetch(`/api/business/admin/approve/${id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ action: "approve" }),
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // THIS IS THE KEY: Sends cookies to Next.js
+        body: JSON.stringify({ action: "Approve" }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setBusinesses(
-            businesses.map((b) =>
-              b._id === id ? { ...b, isVerified: true } : b,
-            ),
-          );
-        }
+      const data = await res.json();
+
+      if (data.success) {
+        setBusinesses((prev) =>
+          prev.map((b) =>
+            b._id === id
+              ? { ...b, businessVerified: true, businessStatus: "Approved" }
+              : b,
+          ),
+        );
+        alert("Business approved!");
+      } else {
+        alert(`Error: ${data.message}`);
       }
     } catch (error) {
-      console.error("Error approving business:", error);
+      console.error("Fetch error:", error);
     }
   };
 
   const handleReject = async (id: string) => {
     try {
-      const res = await fetch(`/api/business/admin/approve/${id}`, {
+      const res = await fetch(`/api/admin/businesses/${id}/approve`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ action: "reject" }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "Reject", reason: "Rejected by admin" }),
       });
-
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -121,13 +125,11 @@ export default function AdminDashboard() {
             <RefreshCw
               size={16}
               className={loading.users ? "animate-spin" : ""}
-            />
+            />{" "}
             Refresh
           </button>
         </div>
-
         <h2 className="text-2xl font-semibold mb-6">All Users</h2>
-
         <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -166,11 +168,7 @@ export default function AdminDashboard() {
                       <td className="py-4 px-6">{u.phoneNumber}</td>
                       <td className="py-4 px-6">
                         <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            u.role === "Admin"
-                              ? "bg-purple-100 text-purple-800"
-                              : "bg-blue-100 text-blue-800"
-                          }`}
+                          className={`px-2 py-1 rounded text-xs font-medium ${u.role === "Admin" ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"}`}
                         >
                           {u.role}
                         </span>
@@ -206,13 +204,11 @@ export default function AdminDashboard() {
             <RefreshCw
               size={16}
               className={loading.businesses ? "animate-spin" : ""}
-            />
+            />{" "}
             Refresh
           </button>
         </div>
-
         <h2 className="text-2xl font-semibold mb-6">Business Verifications</h2>
-
         <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -256,7 +252,8 @@ export default function AdminDashboard() {
                       <td className="py-4 px-6">{b.email}</td>
                       <td className="py-4 px-6">{b.ownerName}</td>
                       <td className="py-4 px-6">
-                        {b.isVerified ? (
+                        {b.businessVerified ||
+                        b.businessStatus === "Approved" ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
                             Approved
                           </span>
@@ -267,7 +264,8 @@ export default function AdminDashboard() {
                         )}
                       </td>
                       <td className="py-4 px-6 text-right">
-                        {!b.isVerified ? (
+                        {!b.businessVerified &&
+                        b.businessStatus === "Pending" ? (
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={() => handleApprove(b._id)}
@@ -284,7 +282,7 @@ export default function AdminDashboard() {
                           </div>
                         ) : (
                           <span className="text-gray-400 text-sm">
-                            Verified
+                            {b.businessStatus}
                           </span>
                         )}
                       </td>
@@ -298,23 +296,33 @@ export default function AdminDashboard() {
       </div>
     );
 
-  const pendingBusinesses = businesses.filter((b) => !b.isVerified).length;
+  const pendingBusinesses = businesses.filter(
+    (b) => !b.businessVerified && b.businessStatus === "Pending",
+  ).length;
   const totalBusinesses = businesses.length;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 font-serif">
-      <div className="flex items-center gap-4 mb-10">
-        <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center">
-          <ShieldCheck size={32} className="text-emerald-900" />
+      <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center">
+            <ShieldCheck size={32} className="text-emerald-900" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-800">
+              Admin Dashboard
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Manage users and business verifications
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-800">
-            Admin Dashboard
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Manage users and business verifications
-          </p>
-        </div>
+        <button
+          onClick={logout}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition"
+        >
+          <LogOut size={18} /> Logout
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
@@ -333,7 +341,6 @@ export default function AdminDashboard() {
           </div>
           <p className="text-sm text-gray-500 mt-2">Click to view all users</p>
         </div>
-
         <div
           onClick={() => setView("business")}
           className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 text-center cursor-pointer hover:shadow-md hover:border-emerald-200 transition"
@@ -373,9 +380,8 @@ export default function AdminDashboard() {
                   Pending Approvals
                 </h3>
                 <p className="text-sm text-amber-700">
-                  You have {pendingBusinesses} business {pendingBusinesses}{" "}
-                  business{pendingBusinesses !== 1 ? "es" : ""} waiting for
-                  approval
+                  You have {pendingBusinesses} business
+                  {pendingBusinesses !== 1 ? "es" : ""} waiting for approval
                 </p>
               </div>
             </div>
@@ -396,13 +402,13 @@ export default function AdminDashboard() {
             <div className="flex justify-between">
               <span className="text-sm text-gray-600">Admins:</span>
               <span className="font-medium">
-                {users.filter((u) => u.isAdmin).length}
+                {users.filter((u) => u.role === "Admin").length}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-gray-600">Regular Users:</span>
               <span className="font-medium">
-                {users.filter((u) => !u.isAdmin).length}
+                {users.filter((u) => u.role !== "Admin").length}
               </span>
             </div>
             <div className="flex justify-between">
@@ -410,12 +416,11 @@ export default function AdminDashboard() {
                 Verified Businesses:
               </span>
               <span className="font-medium">
-                {businesses.filter((b) => b.isVerified).length}
+                {businesses.filter((b) => b.businessVerified).length}
               </span>
             </div>
           </div>
         </div>
-
         <div className="p-5 bg-gray-50 rounded-lg">
           <h3 className="font-medium text-gray-700 mb-2">Recent Users</h3>
           <div className="space-y-2">
@@ -429,7 +434,6 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
-
         <div className="p-5 bg-gray-50 rounded-lg">
           <h3 className="font-medium text-gray-700 mb-2">Recent Businesses</h3>
           <div className="space-y-2">
@@ -442,9 +446,9 @@ export default function AdminDashboard() {
                   {business.businessName}
                 </span>
                 <span
-                  className={`text-xs px-2 py-0.5 rounded ${business.isVerified ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}
+                  className={`text-xs px-2 py-0.5 rounded ${business.businessVerified ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}
                 >
-                  {business.isVerified ? "✓" : "⏱"}
+                  {business.businessVerified ? "✓" : "⏱"}
                 </span>
               </div>
             ))}

@@ -3,17 +3,24 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import Image from "next/image";
-import { useState, useTransition } from "react";
+import { useState, useEffect, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LoginFields, LoginSchema } from "../authSchema";
 import { handleLogin } from "@/lib/actions/auth-actions";
+
+type SnackbarState = {
+  message: string;
+  type: "success" | "error" | null;
+};
 
 export const LoginForm = () => {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [isLoading, setIsLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState<SnackbarState>({
+    message: "",
+    type: null,
+  });
 
   const {
     register,
@@ -23,24 +30,49 @@ export const LoginForm = () => {
     resolver: zodResolver(LoginSchema),
   });
 
+  const hideSnackbar = useCallback(() => {
+    const timer = setTimeout(() => {
+      setSnackbar({ message: "", type: null });
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (snackbar.type) hideSnackbar();
+  }, [snackbar.type, hideSnackbar]);
+
   const onSubmit = async (data: LoginFields) => {
-    setError("");
+    setError(null);
+    setSnackbar({ message: "", type: null });
+
     try {
       const res = await handleLogin(data);
 
       if (!res.success) {
-        throw new Error(res.message || "Login Failed");
+        setError(res.message || "Login Failed");
+        setSnackbar({ message: res.message || "Login Failed", type: "error" });
+        return;
       }
 
+      setSnackbar({
+        message: "Login successful! Redirecting...",
+        type: "success",
+      });
+
       startTransition(() => {
-        if (res.user?.role === "Admin") {
-          router.push("/admin");
-        } else {
-          router.push("/auth/dashboard");
-        }
+        setTimeout(() => {
+          if (res.user?.role === "Admin") {
+            router.push("/admin");
+          } else {
+            router.push("/auth/dashboard");
+          }
+        }, 1500);
       });
     } catch (err: any) {
-      setError(err.message || "Login Failed");
+      setSnackbar({
+        message: "A network error occurred.",
+        type: "error",
+      });
     }
   };
 
@@ -48,27 +80,22 @@ export const LoginForm = () => {
     name,
     label,
     type = "text",
-    iconPath,
     error,
   }: {
     name: keyof LoginFields;
     label: string;
     type?: string;
-    iconPath: string;
-    error?: string;
+    error: string | undefined;
   }) => (
     <div className="mb-6">
       <div
         className={`flex items-center rounded-xl bg-gray-200/45 ${error ? "border border-red-500" : ""}`}
       >
-        <div className="p-3">
-          <img src={iconPath} alt={label} className="w-6 h-6 object-contain" />
-        </div>
         <input
           {...register(name)}
           type={type}
           placeholder={label}
-          className="w-full py-3 pr-5 bg-transparent text-lg placeholder:text-[#777777] focus:outline-none font-crimsonPro font-normal"
+          className="w-full py-3 px-5 bg-transparent text-lg placeholder:text-[#777777] focus:outline-none font-crimsonPro font-normal"
         />
       </div>
       {error && (
@@ -79,26 +106,28 @@ export const LoginForm = () => {
     </div>
   );
 
+  const Snackbar = ({ message, type }: SnackbarState) => {
+    if (!type) return null;
+    const baseClasses =
+      "fixed bottom-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg z-50 transition-opacity duration-300 font-crimsonPro font-medium";
+    const colorClasses =
+      type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white";
+    return <div className={`${baseClasses} ${colorClasses}`}>{message}</div>;
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white">
+    <>
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="w-full max-w-sm mx-auto p-6 md:p-8"
+        className="w-full max-w-sm mx-auto p-6 md:p-8 pt-0"
       >
-        <div className="flex justify-center mb-8">
-          <Image
-            src="/images/logo-2.png"
-            alt="Agrix Logo"
-            width={80}
-            height={80}
-          />
-        </div>
+        {/* Logo removed to prevent doubling with landing page */}
 
         <h1 className="text-4xl md:text-5xl font-semibold text-center font-crimsonPro">
-          Welcome Back
+          Customer Login
         </h1>
         <p className="text-xl text-[#777777] font-normal text-center mb-10 font-crimsonPro">
-          Please enter your details
+          Enter your personal details
         </p>
 
         {error && (
@@ -107,17 +136,11 @@ export const LoginForm = () => {
           </div>
         )}
 
-        <InputField
-          name="email"
-          label="email"
-          iconPath="/icons/user.png"
-          error={errors.email?.message}
-        />
+        <InputField name="email" label="Email" error={errors.email?.message} />
         <InputField
           name="password"
           label="Password"
           type="password"
-          iconPath="/icons/password.png"
           error={errors.password?.message}
         />
 
@@ -132,14 +155,14 @@ export const LoginForm = () => {
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isPending}
           className={`w-full md:w-64 mx-auto block py-3 text-white text-2xl font-normal rounded-xl transition font-crimsonPro ${
-            isLoading
+            isPending
               ? "bg-gray-500 cursor-not-allowed"
               : "bg-[#0B3D0B] hover:bg-green-900"
           }`}
         >
-          {isLoading ? "Logging in..." : "Login"}
+          {isPending ? "Logging in..." : "Login"}
         </button>
 
         <div className="flex justify-center mt-6 text-lg font-crimsonPro">
@@ -154,6 +177,8 @@ export const LoginForm = () => {
           </Link>
         </div>
       </form>
-    </div>
+
+      <Snackbar message={snackbar.message} type={snackbar.type} />
+    </>
   );
 };
