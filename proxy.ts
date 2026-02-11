@@ -3,6 +3,7 @@ import { getUserData, getAuthToken } from "./lib/cookie";
 
 const publicPaths = ["/login", "/register", "/forgot-password"];
 const adminPaths = ["/admin"];
+const protectedPaths = ["/profile", "/auth"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -11,21 +12,24 @@ export async function proxy(req: NextRequest) {
 
   const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
   const isAdminPath = adminPaths.some((path) => pathname.startsWith(path));
+  const isProtectedPath = protectedPaths.some((path) =>
+    pathname.startsWith(path),
+  );
 
-  if (isAdminPath) {
-    if (!user || user.role?.toLowerCase() !== "admin") {
-      console.log("Admin Access Denied. Role found:", user?.role);
+  if (user && token) {
+    if (isAdminPath && user.role !== "admin") {
       return NextResponse.redirect(new URL("/", req.url));
     }
   }
-
   if (isPublicPath && user) {
     return NextResponse.redirect(new URL("/", req.url));
   }
-
-  return NextResponse.next();
+  if (isProtectedPath && !token) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+  return NextResponse.next(); 
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/admin", "/login", "/register"],
+  matcher: ["/admin/:path*", "/profile", "/auth/:path", "/login", "/register"],
 };
