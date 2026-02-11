@@ -1,6 +1,8 @@
 import "./globals.css";
 import { Crimson_Pro } from "next/font/google";
 import { AuthProvider } from "@/context/AuthContext";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const crimsonPro = Crimson_Pro({
   subsets: ["latin"],
@@ -16,7 +18,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${crimsonPro.variable} font-crimsonpro`}>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <ToastContainer position="bottom-right" />
+        </AuthProvider>
       </body>
     </html>
   );
