@@ -1,10 +1,11 @@
 "use client";
 
+import React, { useState, useEffect, useCallback, useTransition } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
-import { useState, useEffect, useCallback, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { LoginFields, LoginSchema } from "../authSchema";
 import { handleLogin } from "@/lib/actions/auth-actions";
 
@@ -17,6 +18,7 @@ export const LoginForm = () => {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [showPassword, setShowPassword] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     message: "",
     type: null,
@@ -79,24 +81,83 @@ export const LoginForm = () => {
   const InputField = ({
     name,
     label,
-    type = "text",
+    icon,
     error,
   }: {
     name: keyof LoginFields;
     label: string;
-    type?: string;
+    icon: string;
     error: string | undefined;
   }) => (
     <div className="mb-6">
       <div
-        className={`flex items-center rounded-xl bg-gray-200/45 ${error ? "border border-red-500" : ""}`}
+        className={`flex items-center rounded-xl bg-gray-200/45 px-4 ${
+          error ? "border border-red-500" : ""
+        }`}
       >
+        <Image
+          src={icon}
+          alt=""
+          width={20}
+          height={20}
+          className="brightness-0"
+        />
         <input
           {...register(name)}
-          type={type}
+          type="text"
           placeholder={label}
-          className="w-full py-3 px-5 bg-transparent text-lg placeholder:text-[#777777] focus:outline-none font-crimsonPro font-normal"
+          className="w-full py-3 px-3 bg-transparent text-lg placeholder:text-[#777777] focus:outline-none font-crimsonPro font-normal"
         />
+      </div>
+      {error && (
+        <p className="text-red-500 text-sm mt-1 font-crimsonPro font-normal">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+
+  const PasswordField = ({
+    name,
+    label,
+    error,
+  }: {
+    name: keyof LoginFields;
+    label: string;
+    error: string | undefined;
+  }) => (
+    <div className="mb-6">
+      <div
+        className={`flex items-center rounded-xl bg-gray-200/45 px-4 relative ${
+          error ? "border border-red-500" : ""
+        }`}
+      >
+        <Image
+          src="/icons/password.png"
+          alt=""
+          width={20}
+          height={20}
+          className="brightness-0"
+        />
+        <input
+          {...register(name)}
+          type={showPassword ? "text" : "password"}
+          placeholder={label}
+          className="w-full py-3 px-3 bg-transparent text-lg placeholder:text-[#777777] focus:outline-none font-crimsonPro font-normal"
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword(!showPassword)}
+          className="absolute right-4 opacity-40 hover:opacity-100 transition-opacity"
+        >
+          <Image
+            src={showPassword ? "/icons/view.png" : "/icons/hide.png"}
+            alt="Toggle visibility"
+            width={20}
+            height={20}
+            className="brightness-0"
+          />
+        </button>
       </div>
       {error && (
         <p className="text-red-500 text-sm mt-1 font-crimsonPro font-normal">
@@ -121,8 +182,6 @@ export const LoginForm = () => {
         onSubmit={handleSubmit(onSubmit)}
         className="w-full max-w-sm mx-auto p-6 md:p-8 pt-0"
       >
-        {/* Logo removed to prevent doubling with landing page */}
-
         <h1 className="text-4xl md:text-5xl font-semibold text-center font-crimsonPro">
           Customer Login
         </h1>
@@ -136,17 +195,22 @@ export const LoginForm = () => {
           </div>
         )}
 
-        <InputField name="email" label="Email" error={errors.email?.message} />
         <InputField
+          name="email"
+          label="Email"
+          icon="/icons/email.png"
+          error={errors.email?.message}
+        />
+
+        <PasswordField
           name="password"
           label="Password"
-          type="password"
           error={errors.password?.message}
         />
 
         <div className="text-right mb-8">
           <Link
-            href="#"
+            href="/request-password-reset"
             className="text-red-600 text-base font-crimsonPro font-normal hover:underline"
           >
             Forgot password?
