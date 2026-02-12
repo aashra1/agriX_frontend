@@ -60,13 +60,13 @@ export default function AdminDashboard() {
     fetchBusinesses();
   }, []);
 
+  // In AdminDashboard.tsx
   const handleApprove = async (id: string) => {
     try {
-      // Note: Removed useAuth().getToken() because cookies handle this
-      const res = await fetch(`/api/business/admin/approve/${id}`, {
+      // Use the correct URL that matches your route structure
+      const res = await fetch(`/api/admin/businesses/${id}/approve`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // THIS IS THE KEY: Sends cookies to Next.js
         body: JSON.stringify({ action: "Approve" }),
       });
 
@@ -94,13 +94,23 @@ export default function AdminDashboard() {
       const res = await fetch(`/api/admin/businesses/${id}/approve`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "Reject", reason: "Rejected by admin" }),
+        body: JSON.stringify({
+          action: "Reject",
+          reason: "Rejected by admin",
+        }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setBusinesses(businesses.filter((b) => b._id !== id));
-        }
+
+      const data = await res.json();
+
+      if (data.success) {
+        setBusinesses((prev) =>
+          prev.map((b) =>
+            b._id === id
+              ? { ...b, businessVerified: false, businessStatus: "Rejected" }
+              : b,
+          ),
+        );
+        alert("Business rejected!");
       }
     } catch (error) {
       console.error("Error rejecting business:", error);
