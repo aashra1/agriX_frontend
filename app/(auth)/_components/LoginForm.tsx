@@ -63,7 +63,9 @@ export const LoginForm = () => {
 
       startTransition(() => {
         setTimeout(() => {
-          if (res.user?.role === "Admin") {
+          const userRole = res.user?.role?.toLowerCase();
+
+          if (userRole === "admin") {
             router.push("/admin");
           } else {
             router.push("/auth/dashboard");

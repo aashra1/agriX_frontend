@@ -16,18 +16,32 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith(path),
   );
 
-  if (user && token) {
-    if (isAdminPath && user.role !== "admin") {
+  if (isAdminPath) {
+    if (!token) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+
+    const userRole = user?.role?.toLowerCase();
+
+    if (userRole !== "admin") {
       return NextResponse.redirect(new URL("/", req.url));
     }
+
+    return NextResponse.next();
   }
-  if (isPublicPath && user) {
+
+  if (isPublicPath && token) {
+    if (user?.role?.toLowerCase() === "admin") {
+      return NextResponse.redirect(new URL("/admin", req.url));
+    }
     return NextResponse.redirect(new URL("/", req.url));
   }
+
   if (isProtectedPath && !token) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
-  return NextResponse.next(); 
+
+  return NextResponse.next();
 }
 
 export const config = {

@@ -62,7 +62,7 @@ export const BusinessLoginForm = () => {
       });
 
       setTimeout(() => {
-        window.location.href = "/auth/dashboard";
+        window.location.href = "/business/dashboard";
       }, 1500);
     } catch (err: any) {
       setSnackbar({
