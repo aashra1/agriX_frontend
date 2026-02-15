@@ -1,7 +1,4 @@
 import axios from "axios";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
@@ -14,3 +11,4 @@ const axiosInstance = axios.create({
 });
 
 export default axiosInstance;
+
