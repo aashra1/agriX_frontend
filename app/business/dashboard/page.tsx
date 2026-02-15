@@ -105,15 +105,8 @@ export default function BusinessDashboard() {
           ...prev,
           products: fetchedProducts.length,
           lowStock: lowStockCount,
-          // You can calculate more stats here
         }));
 
-        // Fetch recent orders (you'll need to create this endpoint)
-        // const ordersRes = await fetch(`/api/orders/business/${businessId}?limit=3`);
-        // const ordersData = await ordersRes.json();
-        // setRecentOrders(ordersData.orders || []);
-
-        // For now, keep static orders or fetch from your orders API
         setRecentOrders([
           {
             id: "#ORD-001",
