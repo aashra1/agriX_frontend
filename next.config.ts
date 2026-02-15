@@ -8,11 +8,17 @@ const nextConfig = {
         port: "5001",
         pathname: "/uploads/**",
       },
+      {
+        protocol: "http",
+        hostname: "127.0.0.1",
+        port: "5001",
+        pathname: "/uploads/**",
+      },
     ],
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: "10mb", // Increase from default 1mb to 10mb
+      bodySizeLimit: "10mb",
     },
   },
 };
