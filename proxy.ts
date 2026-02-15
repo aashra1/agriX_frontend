@@ -20,13 +20,9 @@ export async function proxy(req: NextRequest) {
     if (!token) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
-
-    const userRole = user?.role?.toLowerCase();
-
-    if (userRole !== "admin") {
+    if (user?.role?.toLowerCase() !== "admin") {
       return NextResponse.redirect(new URL("/", req.url));
     }
-
     return NextResponse.next();
   }
 
@@ -34,7 +30,7 @@ export async function proxy(req: NextRequest) {
     if (user?.role?.toLowerCase() === "admin") {
       return NextResponse.redirect(new URL("/admin", req.url));
     }
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/auth/dashboard", req.url));
   }
 
   if (isProtectedPath && !token) {
@@ -45,5 +41,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/profile", "/auth/:path", "/login", "/register"],
+  matcher: ["/admin/:path*", "/auth/:path*", "/login", "/register"],
 };
