@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 import { Upload, X, PlusCircle, ChevronRight } from "lucide-react";
 import BusinessSidebar from "../../dashboard/_components/BusinessSidebar";
 import BusinessHeader from "../../dashboard/_components/BusinessHeader";
-import { getAllCategories } from "@/app/api/categories/route";
-import { addProduct } from "@/app/api/product/route";
+import { getAllCategories } from "@/lib/api/category";
+import { createProduct } from "@/lib/api/products";
 
 type SnackbarState = {
   message: string;
@@ -194,7 +194,7 @@ export default function AddProductPage() {
         console.log(pair[0], pair[1]);
       }
 
-      const response = await addProduct(formDataToSend);
+      const response = await createProduct(formDataToSend);
 
       console.log("Product added successfully:", response);
 
