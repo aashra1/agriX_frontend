@@ -1,102 +1,84 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { API } from "@/lib/api/endpoints";
+import { getAuthToken } from "@/lib/cookie";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
 
-export async function GET(req: Request) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-
-  if (!token) {
-    return NextResponse.json(
-      { success: false, message: "Unauthorized" },
-      { status: 401 },
-    );
-  }
-
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("id");
+    const token = await getAuthToken();
 
-    if (!userId) {
+    if (!token) {
       return NextResponse.json(
-        { success: false, message: "User ID required" },
-        { status: 400 },
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
       );
     }
 
-    const res = await fetch(`${BASE}${API.USER.GET_PROFILE(userId)}`, {
+    const res = await fetch(`${BASE}/api/user/profile`, {
+      method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
-        Accept: "application/json",
+        "Content-Type": "application/json",
       },
       cache: "no-store",
     });
 
-    const contentType = res.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      const errorText = await res.text();
-      console.error("Backend Error:", errorText);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
       return NextResponse.json(
-        { success: false, message: "Backend Error" },
+        { success: false, message: errorData.message || "Backend Error" },
         { status: res.status },
       );
     }
 
     const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    return NextResponse.json(data);
   } catch (error) {
-    return NextResponse.json({ success: false }, { status: 500 });
+    console.error("Error fetching profile:", error);
+    return NextResponse.json(
+      { success: false, message: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function PUT(req: Request) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-
-  if (!token) {
-    return NextResponse.json(
-      { success: false, message: "Unauthorized" },
-      { status: 401 },
-    );
-  }
-
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("id");
+    const token = await getAuthToken();
 
-    if (!userId) {
+    if (!token) {
       return NextResponse.json(
-        { success: false, message: "User ID required" },
-        { status: 400 },
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
       );
     }
 
     const formData = await req.formData();
 
-    const res = await fetch(`${BASE}${API.USER.GET_PROFILE(userId)}`, {
+    const res = await fetch(`${BASE}/api/user/profile`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
       },
       body: formData,
-      cache: "no-store",
     });
 
     const contentType = res.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      const errorText = await res.text();
-      console.error("Backend Error:", errorText);
-      return NextResponse.json(
-        { success: false, message: "Backend Error" },
-        { status: res.status },
-      );
+    if (contentType && contentType.includes("application/json")) {
+      const data = await res.json();
+      return NextResponse.json(data, { status: res.status });
     }
 
-    const result = await res.json();
-    return NextResponse.json(result, { status: res.status });
+    const errorText = await res.text();
+    return NextResponse.json(
+      { success: false, message: errorText || "Backend Error" },
+      { status: res.status },
+    );
   } catch (error) {
-    return NextResponse.json({ success: false }, { status: 500 });
+    console.error("Error updating profile:", error);
+    return NextResponse.json(
+      { success: false, message: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
