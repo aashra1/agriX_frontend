@@ -22,20 +22,11 @@ export const loginBusiness = async (loginData: any) => {
   }
 };
 
-export const uploadBusinessDocument = async (
-  formData: FormData,
-  token: string,
-) => {
+export const uploadBusinessDocument = async (formData: FormData) => {
   try {
     const response = await axiosInstance.post(
       API.BUSINESS.UPLOAD_DOC,
       formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`,
-        },
-      },
     );
     return response.data;
   } catch (err: any) {
