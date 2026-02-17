@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, X, PlusCircle, ChevronRight } from "lucide-react";
-import BusinessSidebar from "../../dashboard/_components/BusinessSidebar";
-import BusinessHeader from "../../dashboard/_components/BusinessHeader";
+import BusinessSidebar from "../../_components/BusinessSidebar";
+import BusinessHeader from "../../_components/BusinessHeader";
 import { getAllCategories } from "@/lib/api/category";
 import { createProduct } from "@/lib/api/products";
 
