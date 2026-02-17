@@ -92,7 +92,7 @@ export default function UserSidebar({
     { href: "/favorites", icon: sidebarIcons.Favorites, label: "Favorites" },
     { href: "/auth/cart", icon: sidebarIcons["My Cart"], label: "My Cart" },
     { href: "/auth/profile", icon: sidebarIcons.Profile, label: "Profile" },
-    { href: "/orders", icon: sidebarIcons.Orders, label: "Orders" },
+    { href: "/auth/orders", icon: sidebarIcons.Orders, label: "Orders" },
   ],
 }: UserSidebarProps) {
   const { user } = useAuth();
