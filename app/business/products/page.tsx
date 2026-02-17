@@ -13,9 +13,9 @@ import {
   Trash2,
   AlertCircle,
 } from "lucide-react";
-import BusinessSidebar from "../dashboard/_components/BusinessSidebar";
-import BusinessHeader from "../dashboard/_components/BusinessHeader";
-import { deleteProduct, getBusinessProducts } from "@/app/api/product/route";
+import BusinessSidebar from "../_components/BusinessSidebar";
+import BusinessHeader from "../_components/BusinessHeader";
+import { deleteProduct, getBusinessProducts } from "@/lib/api/products";
 
 type Product = {
   _id: string;
@@ -342,11 +342,18 @@ export default function BusinessProductsPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <p
-                              className={`font-medium ${product.stock < 10 ? "text-red-600" : "text-green-600"}`}
-                            >
-                              {product.stock} {product.unitType}
-                            </p>
+                            <div>
+                              <p
+                                className={`font-medium ${product.stock < 10 ? "text-red-600" : "text-green-600"}`}
+                              >
+                                {product.stock} units
+                              </p>
+                              {(product.weight || product.unitType) && (
+                                <p className="text-xs text-gray-500">
+                                  {product.weight} {product.unitType} per unit
+                                </p>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4">
                             <span
