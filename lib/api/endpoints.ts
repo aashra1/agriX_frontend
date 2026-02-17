@@ -40,4 +40,20 @@ export const API = {
     CLEAR: "/api/cart/clear",
     COUNT: "/api/cart/count",
   },
+  ORDER: {
+    CREATE: "/api/order",
+    GET_USER: "/api/order/user",
+    GET_BUSINESS: "/api/order/business/orders",
+    GET_BY_ID: (orderId: string) => `/api/order/${orderId}`,
+    UPDATE_STATUS: (orderId: string) => `/api/order/${orderId}/status`,
+    UPDATE_PAYMENT: (orderId: string) => `/api/order/${orderId}/payment`,
+  },
+  PAYMENT: {
+    KHALTI_INITIATE: "/payments/khalti/initiate",
+    KHALTI_VERIFY: "/payments/khalti/verify",
+    GET_BY_ORDER: (orderId: string) => `/payments/order/${orderId}`,
+    GET_USER: "/payments/user",
+    GET_ALL: "/payments/admin/all",
+    WEBHOOK: "/payments/khalti/webhook",
+  },
 };
