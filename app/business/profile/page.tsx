@@ -19,13 +19,14 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  User,
+  Calendar,
+  Lock,
 } from "lucide-react";
-import BusinessSidebar from "../dashboard/_components/BusinessSidebar";
-import BusinessHeader from "../dashboard/_components/BusinessHeader";
-import {
-  getBusinessProfile,
-  updateBusinessProfile,
-} from "@/app/api/business/profile/route";
+
+import { getBusinessProfile, updateBusinessProfile } from "@/lib/api/business";
+import BusinessSidebar from "../_components/BusinessSidebar";
+import BusinessHeader from "../_components/BusinessHeader";
 
 type BusinessProfile = {
   _id: string;
@@ -54,8 +55,10 @@ export default function BusinessProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     message: "",
     type: null,
@@ -84,7 +87,6 @@ export default function BusinessProfilePage() {
         const response = await getBusinessProfile();
         console.log("Profile API Response:", response);
 
-        // FIX: Your backend returns the business object directly
         if (response && response._id) {
           const businessData = response;
           setProfile(businessData);
@@ -126,6 +128,7 @@ export default function BusinessProfilePage() {
     if (file) {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
+      setImageError(false);
     }
   };
 
@@ -154,7 +157,6 @@ export default function BusinessProfilePage() {
       const result = await updateBusinessProfile(data);
       console.log("Update Response:", result);
 
-      // Check your update response structure
       if (result) {
         setSnackbar({
           message: result.message || "Profile updated successfully!",
@@ -163,9 +165,7 @@ export default function BusinessProfilePage() {
         setIsEditing(false);
         setSelectedFile(null);
 
-        // Refresh profile data
         const refreshData = await getBusinessProfile();
-        // FIX: Your backend returns the business object directly
         if (refreshData && refreshData._id) {
           setProfile(refreshData);
           setFormData({
@@ -200,8 +200,8 @@ export default function BusinessProfilePage() {
   };
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     await logout();
-    router.push("/login");
   };
 
   const getStatusBadge = () => {
@@ -242,6 +242,27 @@ export default function BusinessProfilePage() {
     });
   };
 
+  const accountLinks = [
+    {
+      href: "/business/products/add-products",
+      icon: Package,
+      label: "Add New Product",
+      description: "List a new product in your store",
+    },
+    {
+      href: "/business/products",
+      icon: Package,
+      label: "Manage Products",
+      description: "View and edit your products",
+    },
+    {
+      href: "/business/orders",
+      icon: Package,
+      label: "View Orders",
+      description: "Track and manage customer orders",
+    },
+  ];
+
   if (authLoading || isLoading) {
     return (
       <div className="flex min-h-screen bg-gradient-to-br from-gray-50 via-green-50/30 to-emerald-50/40 font-crimsonpro">
@@ -271,7 +292,7 @@ export default function BusinessProfilePage() {
           searchPlaceholder="Search products, orders..."
         />
 
-        <div className="p-8 max-w-5xl mx-auto">
+        <div className="p-8 max-w-7xl mx-auto">
           <div className="flex items-center gap-2 text-sm mb-6">
             <Link
               href="/business/dashboard"
@@ -283,177 +304,149 @@ export default function BusinessProfilePage() {
             <span className="text-green-800 font-medium">Business Profile</span>
           </div>
 
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-4xl font-bold text-gray-900">
-                  Business Profile
-                </h1>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${statusBadge.color}`}
+          {/* Profile Header - Same as User Profile */}
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-8 mb-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+              <div className="relative">
+                <div
+                  className={`w-24 h-24 md:w-28 md:h-28 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl overflow-hidden border-4 border-white shadow-lg ${isEditing ? "cursor-pointer" : ""}`}
+                  onClick={() => isEditing && fileInputRef.current?.click()}
                 >
-                  {statusBadge.icon}
-                  {statusBadge.text}
-                </span>
-              </div>
-              <p className="text-gray-500 text-lg">
-                Manage your business information
-              </p>
-            </div>
-            {!isEditing ? (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-6 py-3 bg-[#0B3D0B] hover:bg-green-900 text-white font-medium rounded-xl transition-all flex items-center gap-2 shadow-lg"
-              >
-                <Edit size={20} /> Edit Profile
-              </button>
-            ) : (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    setIsEditing(false);
-                    setSelectedFile(null);
-                    if (profile) {
-                      setFormData({
-                        businessName: profile.businessName || "",
-                        email: profile.email || "",
-                        phoneNumber: profile.phoneNumber || "",
-                        address: profile.address || "",
-                      });
-                      if (profile.profilePicture) {
-                        const fileName = profile.profilePicture
-                          .split(/[\\/]/)
-                          .pop();
-                        setPreviewUrl(
-                          `${baseUrl}/uploads/profile-images/${fileName}`,
-                        );
-                      }
-                    }
-                  }}
-                  className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={isSubmitting}
-                  className="px-6 py-3 bg-[#0B3D0B] hover:bg-green-900 text-white font-medium rounded-xl transition-all flex items-center gap-2 shadow-lg disabled:bg-gray-400"
-                >
-                  {isSubmitting ? (
-                    "Saving..."
+                  {previewUrl && !imageError ? (
+                    <img
+                      src={previewUrl}
+                      alt={profile?.businessName}
+                      className="w-full h-full object-cover"
+                      onError={() => setImageError(true)}
+                    />
                   ) : (
-                    <>
-                      <Save size={20} /> Save Changes
-                    </>
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-800 to-emerald-700">
+                      <Building2 size={48} className="text-white" />
+                    </div>
                   )}
-                </button>
+                </div>
+                {isEditing && (
+                  <div
+                    className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-800 text-white rounded-xl hover:bg-green-900 transition-colors shadow-md flex items-center justify-center cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Camera size={16} />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  accept="image/*"
+                />
               </div>
-            )}
+
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+                    {profile?.businessName || "Business Name"}
+                  </h1>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${statusBadge.color}`}
+                  >
+                    {statusBadge.icon}
+                    {statusBadge.text}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                  <span className="flex items-center gap-1">
+                    <Mail size={16} className="text-green-700" />
+                    {profile?.email || "email@example.com"}
+                  </span>
+                  <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                  <span className="flex items-center gap-1">
+                    <Phone size={16} className="text-green-700" />
+                    {profile?.phoneNumber || "Not provided"}
+                  </span>
+                  <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                  <span className="flex items-center gap-1">
+                    <MapPin size={16} className="text-green-700" />
+                    {profile?.address || "Not provided"}
+                  </span>
+                  <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                  <span className="flex items-center gap-1">
+                    <Calendar size={16} className="text-green-700" />
+                    Member since{" "}
+                    {profile?.createdAt
+                      ? formatDate(profile.createdAt)
+                      : "2025"}
+                  </span>
+                </div>
+              </div>
+
+              {!isEditing ? (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="px-6 py-3 bg-[#0B3D0B] hover:bg-green-900 text-white font-medium rounded-xl transition-all flex items-center gap-2 shadow-lg"
+                >
+                  <Edit size={20} /> Edit Profile
+                </button>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setIsEditing(false);
+                      setSelectedFile(null);
+                      if (profile) {
+                        setFormData({
+                          businessName: profile.businessName || "",
+                          email: profile.email || "",
+                          phoneNumber: profile.phoneNumber || "",
+                          address: profile.address || "",
+                        });
+                        if (profile.profilePicture) {
+                          const fileName = profile.profilePicture
+                            .split(/[\\/]/)
+                            .pop();
+                          setPreviewUrl(
+                            `${baseUrl}/uploads/profile-images/${fileName}`,
+                          );
+                        }
+                      }
+                    }}
+                    className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={isSubmitting}
+                    className="px-6 py-3 bg-[#0B3D0B] hover:bg-green-900 text-white font-medium rounded-xl transition-all flex items-center gap-2 shadow-lg disabled:bg-gray-400"
+                  >
+                    {isSubmitting ? (
+                      "Saving..."
+                    ) : (
+                      <>
+                        <Save size={20} /> Save Changes
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1">
-              <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 sticky top-24">
-                <div className="flex flex-col items-center text-center mb-6">
-                  <div
-                    className={`relative group ${isEditing ? "cursor-pointer" : ""}`}
-                    onClick={() => isEditing && fileInputRef.current?.click()}
-                  >
-                    <div className="w-32 h-32 rounded-2xl overflow-hidden border-3 border-white shadow-xl mb-4">
-                      {previewUrl ? (
-                        <img
-                          src={previewUrl}
-                          alt={profile?.businessName}
-                          className="w-full h-full object-cover"
-                          onError={() => setPreviewUrl(null)}
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center">
-                          <Building2 size={48} className="text-green-800" />
-                        </div>
-                      )}
-                    </div>
-                    {isEditing && (
-                      <div className="absolute bottom-4 right-1/2 translate-x-12 bg-green-800 text-white p-2 rounded-lg shadow-md group-hover:scale-110 transition-transform">
-                        <Camera size={18} />
-                      </div>
-                    )}
-                  </div>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    className="hidden"
-                    accept="image/*"
-                  />
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {profile?.businessName}
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Member since{" "}
-                    {profile?.createdAt ? formatDate(profile.createdAt) : "N/A"}
-                  </p>
-                </div>
-
-                <div className="border-t border-gray-100 pt-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">
-                        Verification Status
-                      </span>
-                      <span
-                        className={`text-xs font-medium px-2 py-1 rounded-full ${statusBadge.color}`}
-                      >
-                        {profile?.businessStatus || "Pending"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">
-                        Account Type
-                      </span>
-                      <span className="text-sm font-medium text-gray-900">
-                        Business
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Business ID</span>
-                      <span className="text-sm font-mono text-gray-900">
-                        {profile?._id?.slice(-6)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-100 mt-6 pt-6">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                    Quick Actions
-                  </h3>
-                  <div className="space-y-2">
-                    <Link
-                      href="/business/products/add-products"
-                      className="flex items-center gap-3 p-3 text-sm text-gray-600 hover:bg-green-50 rounded-lg transition-colors"
-                    >
-                      <Package size={18} className="text-green-800" />
-                      <span>Add New Product</span>
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-3 p-3 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <LogOut size={18} />
-                      <span>Logout</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
+            {/* Business Stats - Similar to order stats in user profile */}
             <div className="lg:col-span-2 space-y-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-6 bg-gradient-to-b from-green-800 to-emerald-600 rounded-full"></div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Business Settings
+                </h2>
+              </div>
+
               <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
                   <Building2 size={20} className="text-green-800" />
                   Business Information
-                </h2>
+                </h3>
 
                 <div className="space-y-6">
                   <div>
@@ -576,6 +569,95 @@ export default function BusinessProfilePage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Right Column - Quick Actions & Security */}
+            <div className="space-y-6">
+              <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6 border border-emerald-100">
+                <div className="flex items-center gap-3 mb-4">
+                  <Shield className="text-emerald-800" size={24} />
+                  <h3 className="font-bold text-gray-900">Account Status</h3>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Business ID</span>
+                    <span className="font-mono text-gray-900">
+                      {profile?._id?.slice(-6)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Verification</span>
+                    <span
+                      className={`text-xs font-medium px-2 py-1 rounded-full ${statusBadge.color}`}
+                    >
+                      {profile?.businessStatus || "Pending"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Account Type</span>
+                    <span className="text-gray-900 font-medium">Business</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl overflow-hidden divide-y divide-gray-100">
+                {accountLinks.map((link, index) => {
+                  const Icon = link.icon;
+                  return (
+                    <Link
+                      key={index}
+                      href={link.href}
+                      className="flex items-center justify-between p-4 hover:bg-green-50/50 transition-colors group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center group-hover:bg-green-100 transition-colors">
+                          <Icon
+                            size={20}
+                            className="text-gray-700 group-hover:text-green-800"
+                          />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 group-hover:text-green-800">
+                            {link.label}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {link.description}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight
+                        size={18}
+                        className="text-gray-400 group-hover:text-green-800 group-hover:translate-x-1 transition-all"
+                      />
+                    </Link>
+                  );
+                })}
+              </div>
+
+              <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6">
+                <button
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="w-full flex items-center justify-between p-3 hover:bg-red-50 rounded-xl transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                      {isLoggingOut ? (
+                        <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <LogOut size={20} className="text-red-600" />
+                      )}
+                    </div>
+                    <span className="font-medium text-gray-900 group-hover:text-red-600">
+                      {isLoggingOut ? "Logging out..." : "Logout"}
+                    </span>
+                  </div>
+                  <ChevronRight
+                    size={18}
+                    className="text-gray-400 group-hover:text-red-600"
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </div>
