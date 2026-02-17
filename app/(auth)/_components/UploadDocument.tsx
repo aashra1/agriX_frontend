@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { handleUploadDocument } from "@/lib/actions/business-actions";
+import { getTempToken } from "@/lib/cookie";
 
 type SnackbarState = { message: string; type: "success" | "error" | null };
 
@@ -22,7 +24,31 @@ export default function UploadDocumentPage() {
     type: null,
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const checkToken = async () => {
+      try {
+        const token = await getTempToken();
+        console.log("Temp token from cookie:", token ? "Present" : "Missing");
+        if (!token) {
+          setSnackbar({
+            message: "No registration token found. Please register again.",
+            type: "error",
+          });
+          setTimeout(() => router.push("/register"), 2000);
+        }
+      } catch (error) {
+        console.error("Error checking token:", error);
+        router.push("/register");
+      } finally {
+        setIsChecking(false);
+      }
+    };
+    checkToken();
+  }, [router]);
 
   useEffect(() => {
     if (snackbar.type) {
@@ -73,14 +99,15 @@ export default function UploadDocumentPage() {
     setSnackbar({ message: "", type: null });
 
     try {
-      const token = localStorage.getItem("tempToken");
-      if (!token)
+      const token = await getTempToken();
+      if (!token) {
         throw new Error("Authentication token missing. Please register again.");
+      }
 
       const formData = new FormData();
       formData.append("document", file);
 
-      const result = await handleUploadDocument(formData, token);
+      const result = await handleUploadDocument(formData);
 
       if (result.success) {
         setSnackbar({
@@ -89,8 +116,7 @@ export default function UploadDocumentPage() {
         });
 
         setTimeout(() => {
-          localStorage.removeItem("tempToken");
-          window.location.href = "/login";
+          router.push("/login");
         }, 2000);
 
         setFile(null);
@@ -107,6 +133,14 @@ export default function UploadDocumentPage() {
       setIsLoading(false);
     }
   };
+
+  if (isChecking) {
+    return (
+      <div className="max-w-md mx-auto mt-10 p-6 text-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 font-crimsonpro">

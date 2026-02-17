@@ -84,7 +84,7 @@ export const BusinessRegisterForm = ({
         formData.append("profilePicture", fileInput[0]);
       }
 
-      const res = await handleBusinessRegister(formData as any);
+      const res = await handleBusinessRegister(formData);
 
       if (!res.success) {
         setError(res.message);

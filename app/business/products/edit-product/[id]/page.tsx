@@ -12,9 +12,9 @@ import {
   Save,
   Camera,
 } from "lucide-react";
-import BusinessSidebar from "../../../dashboard/_components/BusinessSidebar";
-import BusinessHeader from "../../../dashboard/_components/BusinessHeader";
-import { getAllCategories } from "@/app/api/categories/route";
+import BusinessSidebar from "../../../_components/BusinessSidebar";
+import BusinessHeader from "../../../_components/BusinessHeader";
+import { getAllCategories } from "@/lib/api/category";
 
 type SnackbarState = {
   message: string;
