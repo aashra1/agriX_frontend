@@ -17,7 +17,7 @@ interface AuthContextProps {
   logout: () => Promise<void>;
   loading: boolean;
   checkAuth: () => Promise<void>;
-  businessId: string | null; 
+  businessId: string | null;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await clearAuthCookies();
       setIsAuthenticated(false);
       setUser(null);
-      router.push("/business/login");
+      router.push("/login");
     } catch (error) {
       console.error("Logout failed:", error);
     }
