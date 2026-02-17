@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import {
   ChevronRight,
-  TrendingUp,
   Sparkles,
   ArrowRight,
   Package,
@@ -17,8 +16,10 @@ import {
   BarChart3,
   Clock,
 } from "lucide-react";
-import BusinessSidebar from "./_components/BusinessSidebar";
-import BusinessHeader from "./_components/BusinessHeader";
+import BusinessSidebar from "../_components/BusinessSidebar";
+import BusinessHeader from "../_components/BusinessHeader";
+import { getBusinessOrders } from "@/lib/api/order";
+import { Order } from "@/lib/api/order";
 
 type Product = {
   _id: string;
@@ -34,38 +35,30 @@ type Product = {
   discount?: number;
 };
 
-type Order = {
-  id: string;
-  customer: string;
-  amount: string;
-  status: string;
-};
-
-type Stats = {
+type DashboardStats = {
   totalOrders: number;
   totalCustomers: number;
   revenue: number;
-  growth: number;
   lowStock: number;
+  totalProducts: number;
 };
 
 export default function BusinessDashboard() {
   const { user, businessId, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [stats, setStats] = useState<Stats>({
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
     totalOrders: 0,
     totalCustomers: 0,
     revenue: 0,
-    growth: 12.5,
     lowStock: 0,
+    totalProducts: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
 
-  // Fetch products and dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!businessId) return;
@@ -87,46 +80,40 @@ export default function BusinessDashboard() {
 
         setProducts(fetchedProducts);
 
-        // Calculate stats from products
-        const totalStock = fetchedProducts.reduce(
-          (acc, p) => acc + (p.stock || 0),
-          0,
-        );
+        // Fetch orders
+        const ordersResponse = await getBusinessOrders(1, 10);
+        const fetchedOrders = ordersResponse.orders || [];
+        setOrders(fetchedOrders);
+
+        // Calculate stats
         const lowStockCount = fetchedProducts.filter(
           (p) => (p.stock || 0) < 10,
         ).length;
-        const averagePrice =
-          fetchedProducts.length > 0
-            ? fetchedProducts.reduce((acc, p) => acc + (p.price || 0), 0) /
-              fetchedProducts.length
-            : 0;
 
-        setStats((prev) => ({
-          ...prev,
-          products: fetchedProducts.length,
+        // Calculate revenue from delivered orders
+        const totalRevenue = fetchedOrders
+          .filter((order) => order.orderStatus === "delivered")
+          .reduce((sum, order) => sum + order.total, 0);
+
+        // Get unique customers count
+        const uniqueCustomers = new Set(
+          fetchedOrders
+            .map((order) => {
+              if (typeof order.user === "object" && order.user !== null) {
+                return (order.user as { _id?: string })._id;
+              }
+              return order.user as string;
+            })
+            .filter(Boolean),
+        ).size;
+
+        setStats({
+          totalOrders: fetchedOrders.length,
+          totalCustomers: uniqueCustomers,
+          revenue: totalRevenue,
           lowStock: lowStockCount,
-        }));
-
-        setRecentOrders([
-          {
-            id: "#ORD-001",
-            customer: "John Farmer",
-            amount: "$156.50",
-            status: "Processing",
-          },
-          {
-            id: "#ORD-002",
-            customer: "Mary Grower",
-            amount: "$89.99",
-            status: "Shipped",
-          },
-          {
-            id: "#ORD-003",
-            customer: "Robert Fields",
-            amount: "$245.00",
-            status: "Delivered",
-          },
-        ]);
+          totalProducts: fetchedProducts.length,
+        });
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
       } finally {
@@ -139,7 +126,6 @@ export default function BusinessDashboard() {
     }
   }, [businessId]);
 
-  // Helper function to get product image URL
   const getProductImageUrl = (product: Product) => {
     if (product.image) {
       const fileName = product.image.split(/[\\/]/).pop();
@@ -148,7 +134,6 @@ export default function BusinessDashboard() {
     return null;
   };
 
-  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-NP", {
       style: "currency",
@@ -156,6 +141,34 @@ export default function BusinessDashboard() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "delivered":
+        return "bg-green-100 text-green-700";
+      case "shipped":
+        return "bg-blue-100 text-blue-700";
+      case "processing":
+        return "bg-purple-100 text-purple-700";
+      case "pending":
+        return "bg-amber-100 text-amber-700";
+      case "cancelled":
+        return "bg-red-100 text-red-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const getCustomerName = (order: Order): string => {
+    if (typeof order.user === "object" && order.user !== null) {
+      return (order.user as { fullName?: string }).fullName || "N/A";
+    }
+    return "Customer";
+  };
+
+  const formatOrderId = (id: string) => {
+    return `#${id.slice(-6)}`;
   };
 
   if (authLoading || isLoading) {
@@ -238,29 +251,29 @@ export default function BusinessDashboard() {
               icon={<DollarSign size={24} />}
               label="Total Revenue"
               value={formatCurrency(stats.revenue)}
-              trend="+12.5%"
+              trend={`${stats.totalOrders} orders`}
               trendUp={true}
             />
             <StatCard
               icon={<ShoppingCart size={24} />}
               label="Total Orders"
               value={stats.totalOrders.toString()}
-              trend="+8.2%"
+              trend={`${stats.totalOrders} total`}
               trendUp={true}
             />
             <StatCard
               icon={<Users size={24} />}
               label="Customers"
               value={stats.totalCustomers.toString()}
-              trend="+15.3%"
+              trend={`unique buyers`}
               trendUp={true}
             />
             <StatCard
               icon={<Package size={24} />}
               label="Products"
-              value={products.length.toString()}
-              trend={`+${products.length}`}
-              trendUp={true}
+              value={stats.totalProducts.toString()}
+              trend={`${stats.lowStock} low stock`}
+              trendUp={stats.lowStock === 0}
             />
           </div>
 
@@ -275,8 +288,8 @@ export default function BusinessDashboard() {
                     </h2>
                   </div>
                   <p className="text-gray-600 text-sm ml-3">
-                    {products.length}{" "}
-                    {products.length === 1 ? "product" : "products"} in your
+                    {stats.totalProducts}{" "}
+                    {stats.totalProducts === 1 ? "product" : "products"} in your
                     inventory
                   </p>
                 </div>
@@ -337,9 +350,9 @@ export default function BusinessDashboard() {
                             {formatCurrency(product.price)}
                           </span>
                           <span
-                            className={`text-xs ${product.stock < 10 ? "text-red-500 font-medium" : "text-gray-500"}`}
+                            className={`text-xs ${(product.stock || 0) < 10 ? "text-red-500 font-medium" : "text-gray-500"}`}
                           >
-                            Stock: {product.stock}
+                            Stock: {product.stock || 0}
                           </span>
                         </div>
                       </div>
@@ -356,7 +369,7 @@ export default function BusinessDashboard() {
                 })}
               </div>
 
-              {products.length === 0 && (
+              {stats.totalProducts === 0 && (
                 <div className="bg-white/90 rounded-2xl p-12 text-center border-2 border-dashed border-gray-300">
                   <Package size={48} className="mx-auto text-gray-400 mb-4" />
                   <h3 className="text-xl font-bold text-gray-700 mb-2">
@@ -375,7 +388,7 @@ export default function BusinessDashboard() {
                 </div>
               )}
 
-              {products.length > 4 && (
+              {stats.totalProducts > 4 && (
                 <div className="flex justify-center mt-4">
                   <Link
                     href="/business/products"
@@ -383,7 +396,7 @@ export default function BusinessDashboard() {
                   >
                     <Package size={18} />
                     <span className="font-medium text-sm">
-                      View All {products.length} Products
+                      View All {stats.totalProducts} Products
                     </span>
                     <ChevronRight size={16} />
                   </Link>
@@ -404,41 +417,39 @@ export default function BusinessDashboard() {
                   className="font-semibold flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors"
                   style={{ color: "#0B3D0B" }}
                 >
-                  View All
+                  View All ({stats.totalOrders})
                   <ChevronRight size={16} />
                 </Link>
               </div>
 
               <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl overflow-hidden shadow-sm">
-                {recentOrders.length > 0 ? (
-                  recentOrders.map((order, index) => (
+                {orders.length > 0 ? (
+                  orders.slice(0, 5).map((order, index) => (
                     <Link
-                      key={order.id}
-                      href={`/business/orders/${order.id}`}
+                      key={order._id}
+                      href={`/business/orders/${order._id}`}
                       className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0 group"
                     >
                       <div>
                         <p className="font-semibold text-gray-900 text-sm group-hover:text-green-800">
-                          {order.id}
+                          {formatOrderId(order._id)}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {order.customer}
+                          {getCustomerName(order)}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {order.items.length}{" "}
+                          {order.items.length === 1 ? "item" : "items"}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-gray-900 text-sm">
-                          {order.amount}
+                          {formatCurrency(order.total)}
                         </p>
                         <span
-                          className={`text-xs px-2 py-0.5 rounded-full inline-block mt-1 ${
-                            order.status === "Delivered"
-                              ? "bg-green-100 text-green-700"
-                              : order.status === "Shipped"
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-amber-100 text-amber-700"
-                          }`}
+                          className={`text-xs px-2 py-0.5 rounded-full inline-block mt-1 ${getStatusColor(order.orderStatus)}`}
                         >
-                          {order.status}
+                          {order.orderStatus}
                         </span>
                       </div>
                     </Link>
@@ -454,25 +465,25 @@ export default function BusinessDashboard() {
                 )}
               </div>
 
-              <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6 border border-emerald-100">
-                <div className="flex items-center gap-3 mb-3">
-                  <BarChart3 className="text-emerald-800" size={24} />
-                  <h3 className="font-bold text-gray-900">Inventory Alert</h3>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Low Stock Items</span>
-                    <span className="font-bold text-amber-600">
-                      {stats.lowStock}
-                    </span>
+              {stats.lowStock > 0 && (
+                <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6 border border-emerald-100">
+                  <div className="flex items-center gap-3 mb-3">
+                    <BarChart3 className="text-emerald-800" size={24} />
+                    <h3 className="font-bold text-gray-900">Inventory Alert</h3>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total Products</span>
-                    <span className="font-bold text-gray-900">
-                      {products.length}
-                    </span>
-                  </div>
-                  {stats.lowStock > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Low Stock Items</span>
+                      <span className="font-bold text-amber-600">
+                        {stats.lowStock}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Total Products</span>
+                      <span className="font-bold text-gray-900">
+                        {stats.totalProducts}
+                      </span>
+                    </div>
                     <Link
                       href="/business/products?filter=low-stock"
                       className="mt-3 text-xs text-green-700 hover:text-green-800 font-medium flex items-center gap-1"
@@ -480,9 +491,9 @@ export default function BusinessDashboard() {
                       View low stock items
                       <ArrowRight size={12} />
                     </Link>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
