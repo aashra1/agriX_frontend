@@ -1,19 +1,26 @@
 "use server";
 
-import axiosInstance from "../api/axios";
 import {
-  loginBusiness,
   registerBusiness,
+  loginBusiness,
   uploadBusinessDocument,
 } from "../api/business";
-import { setUserData, setAuthToken, getAuthToken } from "../cookie";
+import {
+  setUserData,
+  setAuthToken,
+  setTempToken,
+  clearTempToken,
+} from "../cookie";
 
-export const handleBusinessRegister = async (formData: any) => {
+export const handleBusinessRegister = async (formData: FormData) => {
   try {
     const result = await registerBusiness(formData);
 
     if (result.success) {
-      // Business registration returns a tempToken for document upload
+      if (result.tempToken) {
+        await setTempToken(result.tempToken);
+      }
+
       return {
         success: true,
         message: result.message || "Registration Successful",
@@ -40,7 +47,6 @@ export const handleBusinessLogin = async (formData: any) => {
     const result = await loginBusiness(formData);
 
     if (result.success) {
-      // Check status before setting cookies
       if (result.business.businessStatus !== "Approved") {
         return {
           success: false,
@@ -63,14 +69,13 @@ export const handleBusinessLogin = async (formData: any) => {
   }
 };
 
-export const handleUploadDocument = async (
-  formData: FormData,
-  token: string,
-) => {
+export const handleUploadDocument = async (formData: FormData) => {
   try {
-    const result = await uploadBusinessDocument(formData, token);
+    const result = await uploadBusinessDocument(formData);
 
     if (result.success) {
+      await clearTempToken();
+
       return {
         success: true,
         message: result.message || "Upload Successful",
