@@ -24,8 +24,11 @@ import {
 } from "lucide-react";
 import UserSidebar from "../../_components/UserSidebar";
 import UserHeader from "../../_components/UserHeader";
-import { getProductById } from "@/lib/api/products";
-import { addToCart } from "@/lib/api/cart";
+import {
+  handleGetProductById,
+  handleGetProductsByCategory,
+} from "@/lib/actions/product-actions";
+import { handleAddToCart } from "@/lib/actions/cart-actions";
 
 type Product = {
   _id: string;
@@ -96,7 +99,6 @@ export default function ProductDetailPage() {
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
 
-  // Helper function to get product image URL
   const getProductImageUrl = (product: Product | RelatedProduct) => {
     if (product.image) {
       const fileName = product.image.split(/[\\/]/).pop();
@@ -105,7 +107,6 @@ export default function ProductDetailPage() {
     return null;
   };
 
-  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-NP", {
       style: "currency",
@@ -115,19 +116,16 @@ export default function ProductDetailPage() {
     }).format(amount);
   };
 
-  // Get discounted price
   const getDiscountedPrice = (price: number, discount?: number) => {
     if (!discount || discount <= 0) return price;
     return price - (price * discount) / 100;
   };
 
-  // Calculate savings
   const getSavings = (price: number, discount?: number) => {
     if (!discount || discount <= 0) return 0;
     return (price * discount) / 100;
   };
 
-  // Auto-hide snackbar
   useEffect(() => {
     if (snackbar.type) {
       const timer = setTimeout(() => {
@@ -143,26 +141,28 @@ export default function ProductDetailPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch product details
-        const productData = await getProductById(productId);
-        console.log("Product data:", productData);
+        const productResult = await handleGetProductById(productId);
 
-        const fetchedProduct =
-          productData.product || productData.data || productData;
+        if (!productResult.success) {
+          setError(productResult.message || "Failed to load product");
+          return;
+        }
+
+        const fetchedProduct = productResult.product;
         setProduct(fetchedProduct);
         setSelectedImage(getProductImageUrl(fetchedProduct));
 
-        // Fetch related products (same category)
         if (fetchedProduct.category?._id) {
-          const relatedRes = await fetch(
-            `/api/product/category/${fetchedProduct.category._id}?limit=4`,
+          const relatedResult = await handleGetProductsByCategory(
+            fetchedProduct.category._id,
           );
-          const relatedData = await relatedRes.json();
-          const related = relatedData.products || relatedData.data || [];
-          // Filter out current product
-          setRelatedProducts(
-            related.filter((p: any) => p._id !== productId).slice(0, 4),
-          );
+
+          if (relatedResult.success && relatedResult.products) {
+            const related = relatedResult.products
+              .filter((p: any) => p._id !== productId)
+              .slice(0, 4);
+            setRelatedProducts(related);
+          }
         }
       } catch (error: any) {
         console.error("Error fetching product:", error);
@@ -186,7 +186,7 @@ export default function ProductDetailPage() {
     });
   };
 
-  const handleAddToCart = async () => {
+  const handleAddToCartClick = async () => {
     if (!user) {
       router.push("/auth/login");
       return;
@@ -196,20 +196,22 @@ export default function ProductDetailPage() {
 
     setIsAddingToCart(true);
     try {
-      const response = await addToCart({
+      const result = await handleAddToCart({
         productId: product._id,
         quantity,
       });
 
-      console.log("Added to cart:", response);
-
-      setSnackbar({
-        message: "Item added to cart successfully!",
-        type: "success",
-      });
-
-      // Optional: Update cart count in header if you have a cart context
-      // You can dispatch an event or update a context here
+      if (result.success) {
+        setSnackbar({
+          message: "Item added to cart successfully!",
+          type: "success",
+        });
+      } else {
+        setSnackbar({
+          message: result.message || "Failed to add to cart",
+          type: "error",
+        });
+      }
     } catch (error: any) {
       console.error("Error adding to cart:", error);
       setSnackbar({
@@ -230,12 +232,19 @@ export default function ProductDetailPage() {
     if (!product) return;
 
     try {
-      await addToCart({
+      const result = await handleAddToCart({
         productId: product._id,
         quantity,
       });
 
-      router.push("/auth/cart");
+      if (result.success) {
+        router.push("/auth/cart");
+      } else {
+        setSnackbar({
+          message: result.message || "Failed to add to cart",
+          type: "error",
+        });
+      }
     } catch (error: any) {
       console.error("Error adding to cart:", error);
       setSnackbar({
@@ -257,15 +266,22 @@ export default function ProductDetailPage() {
     }
 
     try {
-      await addToCart({
+      const result = await handleAddToCart({
         productId: relatedProduct._id,
         quantity: 1,
       });
 
-      setSnackbar({
-        message: "Item added to cart successfully!",
-        type: "success",
-      });
+      if (result.success) {
+        setSnackbar({
+          message: "Item added to cart successfully!",
+          type: "success",
+        });
+      } else {
+        setSnackbar({
+          message: result.message || "Failed to add to cart",
+          type: "error",
+        });
+      }
     } catch (error: any) {
       console.error("Error adding to cart:", error);
       setSnackbar({
@@ -337,7 +353,6 @@ export default function ProductDetailPage() {
         <UserHeader />
 
         <div className="p-8 max-w-7xl mx-auto">
-          {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm mb-6">
             <Link
               href="/auth/dashboard"
@@ -369,7 +384,6 @@ export default function ProductDetailPage() {
             </span>
           </div>
 
-          {/* Back button */}
           <button
             onClick={() => router.back()}
             className="flex items-center gap-2 text-gray-600 hover:text-green-800 mb-6 transition-colors"
@@ -378,9 +392,7 @@ export default function ProductDetailPage() {
             <span className="text-sm font-medium">Back</span>
           </button>
 
-          {/* Product Main Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-            {/* Product Images */}
             <div className="space-y-4">
               <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl overflow-hidden aspect-square p-4">
                 {selectedImage ? (
@@ -400,7 +412,6 @@ export default function ProductDetailPage() {
                 )}
               </div>
 
-              {/* Thumbnail images if multiple */}
               {product.images && product.images.length > 1 && (
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {product.images.map((img, idx) => {
@@ -431,9 +442,7 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* Product Info */}
             <div className="space-y-6">
-              {/* Title and Brand */}
               <div>
                 {product.brand && (
                   <p className="text-sm text-gray-500 mb-1">{product.brand}</p>
@@ -471,7 +480,6 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              {/* Price */}
               <div className="bg-green-50/50 rounded-2xl p-6 border border-green-100">
                 <div className="flex items-end gap-3">
                   <span className="text-4xl font-bold text-green-800">
@@ -495,14 +503,12 @@ export default function ProductDetailPage() {
                 )}
               </div>
 
-              {/* Short Description */}
               {product.shortDescription && (
                 <div className="text-gray-600 leading-relaxed">
                   {product.shortDescription}
                 </div>
               )}
 
-              {/* Quantity Selector */}
               <div className="flex items-center gap-4">
                 <span className="text-sm font-medium text-gray-700">
                   Quantity:
@@ -532,10 +538,9 @@ export default function ProductDetailPage() {
                 </span>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
-                  onClick={handleAddToCart}
+                  onClick={handleAddToCartClick}
                   disabled={!inStock || isAddingToCart}
                   className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-green-800 text-white font-medium rounded-xl hover:bg-green-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -574,7 +579,6 @@ export default function ProductDetailPage() {
                 </button>
               </div>
 
-              {/* Delivery Info */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Truck size={18} className="text-green-700" />
@@ -590,7 +594,6 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              {/* Share */}
               <div className="flex items-center gap-3 pt-2">
                 <span className="text-sm text-gray-500">Share:</span>
                 <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -600,7 +603,6 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Tabs Section */}
           <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl overflow-hidden mb-12">
             <div className="flex border-b border-gray-200">
               <button
@@ -707,7 +709,6 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Related Products */}
           {relatedProducts.length > 0 && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">

@@ -19,15 +19,10 @@ import {
 } from "lucide-react";
 import UserSidebar from "../../_components/UserSidebar";
 import UserHeader from "../../_components/UserHeader";
-import { getCategoryById } from "@/lib/api/category";
-import { getProductsByCategory } from "@/lib/api/products";
-
-type Category = {
-  _id: string;
-  name: string;
-  description: string;
-  parentCategory: string | null;
-};
+import { handleGetCategoryById } from "@/lib/actions/category-actions";
+import { handleGetProductsByCategory } from "@/lib/actions/product-actions";
+import { handleAddToCart } from "@/lib/actions/cart-actions";
+import { Category } from "@/lib/api/category";
 
 type Product = {
   _id: string;
@@ -58,6 +53,14 @@ export default function CategoryProductsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<string>("popular");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState<{
+    message: string;
+    type: "success" | "error" | null;
+  }>({
+    message: "",
+    type: null,
+  });
+  const [addingToCart, setAddingToCart] = useState<Set<string>>(new Set());
 
   const categoryIcons: { [key: string]: string } = {
     "Seeds & Plants": "/icons/seeds.png",
@@ -72,7 +75,15 @@ export default function CategoryProductsPage() {
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
 
-  // Helper function to get product image URL (same pattern as BusinessDashboard)
+  useEffect(() => {
+    if (snackbar.type) {
+      const timer = setTimeout(() => {
+        setSnackbar({ message: "", type: null });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [snackbar.type]);
+
   const getProductImageUrl = (product: Product) => {
     if (product.image) {
       const fileName = product.image.split(/[\\/]/).pop();
@@ -81,7 +92,6 @@ export default function CategoryProductsPage() {
     return null;
   };
 
-  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-NP", {
       style: "currency",
@@ -97,18 +107,22 @@ export default function CategoryProductsPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch category details
-        const categoryData = await getCategoryById(categoryId);
-        console.log("Category data:", categoryData);
+        const categoryResult = await handleGetCategoryById(categoryId);
 
-        const fetchedCategory =
-          categoryData.category || categoryData.data || categoryData;
-        setCategory(fetchedCategory);
+        if (!categoryResult.success) {
+          setError(categoryResult.message || "Failed to load category");
+          return;
+        }
 
-        // Fetch products by category
-        const productsData = await getProductsByCategory(categoryId);
-        console.log("Products data:", productsData);
-        setProducts(productsData.products || productsData.data || []);
+        setCategory(categoryResult.data as Category);
+
+        const productsResult = await handleGetProductsByCategory(categoryId);
+
+        if (productsResult.success) {
+          setProducts(productsResult.products || []);
+        } else {
+          setError(productsResult.message || "Failed to load products");
+        }
       } catch (error: any) {
         console.error("Error fetching data:", error);
         setError(error.message || "Failed to load data");
@@ -122,6 +136,52 @@ export default function CategoryProductsPage() {
     }
   }, [categoryId]);
 
+  const handleAddToCartClick = async (
+    e: React.MouseEvent,
+    productId: string,
+    quantity: number = 1,
+  ) => {
+    e.preventDefault();
+
+    if (!user) {
+      router.push("/auth/login");
+      return;
+    }
+
+    setAddingToCart((prev) => new Set(prev).add(productId));
+
+    try {
+      const result = await handleAddToCart({
+        productId,
+        quantity,
+      });
+
+      if (result.success) {
+        setSnackbar({
+          message: "Item added to cart successfully!",
+          type: "success",
+        });
+      } else {
+        setSnackbar({
+          message: result.message || "Failed to add to cart",
+          type: "error",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error adding to cart:", error);
+      setSnackbar({
+        message: error.message || "Failed to add to cart",
+        type: "error",
+      });
+    } finally {
+      setAddingToCart((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(productId);
+        return newSet;
+      });
+    }
+  };
+
   const getDiscountedPrice = (price: number, discount?: number) => {
     if (!discount || discount <= 0) return price;
     return price - (price * discount) / 100;
@@ -134,7 +194,7 @@ export default function CategoryProductsPage() {
       case "price-high":
         return [...products].sort((a, b) => b.price - a.price);
       case "newest":
-        return [...products]; // Assuming products have createdAt field
+        return [...products];
       case "rating":
         return [...products].sort((a, b) => (b.rating || 0) - (a.rating || 0));
       case "popular":
@@ -144,6 +204,19 @@ export default function CategoryProductsPage() {
   };
 
   const sortedProducts = sortProducts(products);
+
+  const Snackbar = () => {
+    if (!snackbar.type) return null;
+    return (
+      <div
+        className={`fixed bottom-6 right-6 px-6 py-3 rounded-xl shadow-lg z-50 transition-all duration-300 transform animate-slide-up ${
+          snackbar.type === "success" ? "bg-green-600" : "bg-red-600"
+        } text-white`}
+      >
+        {snackbar.message}
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -184,7 +257,6 @@ export default function CategoryProductsPage() {
         <UserHeader />
 
         <div className="p-8 max-w-7xl mx-auto">
-          {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm mb-6">
             <Link
               href="/auth/dashboard"
@@ -203,7 +275,6 @@ export default function CategoryProductsPage() {
             <span className="text-green-800 font-medium">{category.name}</span>
           </div>
 
-          {/* Category Header */}
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-8 mb-8">
             <div className="flex items-start gap-6">
               <div
@@ -234,7 +305,6 @@ export default function CategoryProductsPage() {
             </div>
           </div>
 
-          {/* Filters and Sort Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
               <button
@@ -284,7 +354,6 @@ export default function CategoryProductsPage() {
             </div>
           </div>
 
-          {/* Products Grid/List */}
           {sortedProducts.length === 0 ? (
             <div className="text-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50">
               <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
@@ -308,6 +377,7 @@ export default function CategoryProductsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {sortedProducts.map((product, index) => {
                 const productImageUrl = getProductImageUrl(product);
+                const isAdding = addingToCart.has(product._id);
 
                 return (
                   <Link
@@ -342,7 +412,6 @@ export default function CategoryProductsPage() {
                       <button
                         onClick={(e) => {
                           e.preventDefault();
-                          // Add to wishlist logic
                         }}
                         className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
                       >
@@ -401,13 +470,15 @@ export default function CategoryProductsPage() {
                           )}
                         </div>
                         <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            // Add to cart logic
-                          }}
-                          className="w-8 h-8 bg-green-800 text-white rounded-xl hover:bg-green-900 transition-colors flex items-center justify-center"
+                          onClick={(e) => handleAddToCartClick(e, product._id)}
+                          disabled={isAdding}
+                          className="w-8 h-8 bg-green-800 text-white rounded-xl hover:bg-green-900 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <ShoppingCart size={16} />
+                          {isAdding ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <ShoppingCart size={16} />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -416,10 +487,10 @@ export default function CategoryProductsPage() {
               })}
             </div>
           ) : (
-            // List View
             <div className="space-y-4">
               {sortedProducts.map((product) => {
                 const productImageUrl = getProductImageUrl(product);
+                const isAdding = addingToCart.has(product._id);
 
                 return (
                   <Link
@@ -500,14 +571,21 @@ export default function CategoryProductsPage() {
                           )}
                         </div>
                         <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            // Add to cart logic
-                          }}
-                          className="px-6 py-2 bg-green-800 text-white rounded-xl hover:bg-green-900 transition-colors flex items-center gap-2"
+                          onClick={(e) => handleAddToCartClick(e, product._id)}
+                          disabled={isAdding}
+                          className="px-6 py-2 bg-green-800 text-white rounded-xl hover:bg-green-900 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <ShoppingCart size={18} />
-                          Add to Cart
+                          {isAdding ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Adding...
+                            </>
+                          ) : (
+                            <>
+                              <ShoppingCart size={18} />
+                              Add to Cart
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -519,6 +597,8 @@ export default function CategoryProductsPage() {
         </div>
       </main>
 
+      <Snackbar />
+
       <style jsx global>{`
         @keyframes fadeInUp {
           from {
@@ -529,6 +609,19 @@ export default function CategoryProductsPage() {
             opacity: 1;
             transform: translateY(0);
           }
+        }
+        @keyframes slide-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
         }
         .line-clamp-1 {
           display: -webkit-box;

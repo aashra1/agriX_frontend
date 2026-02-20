@@ -21,22 +21,17 @@ import {
   MapPin,
   CreditCard,
   Mail,
-  Home,
   Printer,
   Download,
-  Edit,
-  Send,
 } from "lucide-react";
-import { getOrderById, updateOrderStatus } from "@/lib/api/order";
-
-// Import the Order type from the API
-import { Order as ApiOrder } from "@/lib/api/order";
+import {
+  handleGetOrderById,
+  handleUpdateOrderStatus,
+} from "@/lib/actions/order-actions";
+import { Order } from "@/lib/api/order";
 import BusinessSidebar from "../../_components/BusinessSidebar";
 import BusinessHeader from "../../_components/BusinessHeader";
 
-type Order = ApiOrder;
-
-// Type guard function to check if user is an object
 function isUserObject(user: any): user is {
   _id: string;
   fullName?: string;
@@ -156,9 +151,17 @@ export default function BusinessOrderDetailsPage() {
     const fetchOrderDetails = async () => {
       try {
         setLoading(true);
-        const response = await getOrderById(orderId);
-        setOrder(response.order);
-        setSelectedStatus(response.order.orderStatus);
+        const result = await handleGetOrderById(orderId);
+
+        if (result.success && result.order) {
+          setOrder(result.order);
+          setSelectedStatus(result.order.orderStatus);
+        } else {
+          setSnackbar({
+            message: result.message || "Failed to load order details",
+            type: "error",
+          });
+        }
       } catch (error: any) {
         console.error("Error fetching order details:", error);
         setSnackbar({
@@ -180,16 +183,22 @@ export default function BusinessOrderDetailsPage() {
 
     setUpdatingStatus(true);
     try {
-      await updateOrderStatus(order._id, {
+      const result = await handleUpdateOrderStatus(order._id, {
         orderStatus: selectedStatus as any,
       });
 
-      setOrder({ ...order, orderStatus: selectedStatus as any });
-
-      setSnackbar({
-        message: `Order status updated to ${selectedStatus}`,
-        type: "success",
-      });
+      if (result.success && result.order) {
+        setOrder(result.order);
+        setSnackbar({
+          message: `Order status updated to ${selectedStatus}`,
+          type: "success",
+        });
+      } else {
+        setSnackbar({
+          message: result.message || "Failed to update order status",
+          type: "error",
+        });
+      }
     } catch (error: any) {
       console.error("Error updating order status:", error);
       setSnackbar({
@@ -206,23 +215,25 @@ export default function BusinessOrderDetailsPage() {
 
     setUpdatingStatus(true);
     try {
-      await updateOrderStatus(order!._id, {
+      const result = await handleUpdateOrderStatus(order!._id, {
         orderStatus: "shipped",
         trackingNumber: trackingNumber,
       });
 
-      setOrder({
-        ...order!,
-        orderStatus: "shipped",
-        trackingNumber: trackingNumber,
-      });
-      setSelectedStatus("shipped");
-
-      setSnackbar({
-        message: "Tracking number added successfully",
-        type: "success",
-      });
-      setShowTrackingModal(false);
+      if (result.success && result.order) {
+        setOrder(result.order);
+        setSelectedStatus("shipped");
+        setSnackbar({
+          message: "Tracking number added successfully",
+          type: "success",
+        });
+        setShowTrackingModal(false);
+      } else {
+        setSnackbar({
+          message: result.message || "Failed to add tracking number",
+          type: "error",
+        });
+      }
     } catch (error: any) {
       console.error("Error adding tracking number:", error);
       setSnackbar({
@@ -335,7 +346,6 @@ export default function BusinessOrderDetailsPage() {
         <BusinessHeader />
 
         <div className="p-8 max-w-7xl mx-auto">
-          {/* Header with breadcrumb and actions */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div>
               <div className="flex items-center gap-2 text-sm mb-2">
@@ -379,7 +389,6 @@ export default function BusinessOrderDetailsPage() {
             </div>
           </div>
 
-          {/* Order Status Banner */}
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 mb-6">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-3">
@@ -428,7 +437,6 @@ export default function BusinessOrderDetailsPage() {
               </div>
             </div>
 
-            {/* Status Timeline */}
             <div className="relative mt-8">
               <div className="absolute top-5 left-0 w-full h-0.5 bg-gray-200" />
               <div className="relative flex justify-between">
@@ -461,7 +469,6 @@ export default function BusinessOrderDetailsPage() {
               </div>
             </div>
 
-            {/* Tracking Number */}
             {order.trackingNumber && (
               <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                 <div className="flex items-center justify-between">
@@ -482,9 +489,7 @@ export default function BusinessOrderDetailsPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Order Items */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Order Items */}
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <Package size={20} className="text-green-800" />
@@ -540,7 +545,6 @@ export default function BusinessOrderDetailsPage() {
                   ))}
                 </div>
 
-                {/* Order Summary */}
                 <div className="mt-6 pt-4 border-t border-gray-200">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
@@ -571,7 +575,6 @@ export default function BusinessOrderDetailsPage() {
                 </div>
               </div>
 
-              {/* Order Timeline */}
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <Clock size={20} className="text-green-800" />
@@ -637,16 +640,13 @@ export default function BusinessOrderDetailsPage() {
               </div>
             </div>
 
-            {/* Right Column - Customer & Payment Info */}
             <div className="space-y-6">
-              {/* Customer Information */}
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <User size={20} className="text-green-800" />
                   Customer Information
                 </h2>
 
-                {/* Shipping Address */}
                 <div className="mb-4">
                   <h3 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     <MapPin size={16} className="text-green-700" />
@@ -673,7 +673,6 @@ export default function BusinessOrderDetailsPage() {
                   </div>
                 </div>
 
-                {/* User Info if populated */}
                 {isUserObject(order.user) && (
                   <div>
                     <h3 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
@@ -710,7 +709,6 @@ export default function BusinessOrderDetailsPage() {
                 )}
               </div>
 
-              {/* Payment Information */}
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <CreditCard size={20} className="text-green-800" />
@@ -745,7 +743,6 @@ export default function BusinessOrderDetailsPage() {
                 </div>
               </div>
 
-              {/* Order Notes */}
               {order.notes && (
                 <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6">
                   <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">

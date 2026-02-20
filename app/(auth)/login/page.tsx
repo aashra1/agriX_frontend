@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { LoginForm } from "../_components/LoginForm"; // Customer login
+import { LoginForm } from "../_components/LoginForm"; 
 import { BusinessLoginForm } from "../_components/BusinessLogin";
 
 type UserRole = "initial" | "Customer" | "Seller";

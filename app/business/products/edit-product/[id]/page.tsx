@@ -14,7 +14,11 @@ import {
 } from "lucide-react";
 import BusinessSidebar from "../../../_components/BusinessSidebar";
 import BusinessHeader from "../../../_components/BusinessHeader";
-import { getAllCategories } from "@/lib/api/category";
+import { handleGetAllCategories } from "@/lib/actions/category-actions";
+import {
+  handleGetProductById,
+  handleUpdateProduct,
+} from "@/lib/actions/product-actions";
 
 type SnackbarState = {
   message: string;
@@ -62,16 +66,17 @@ export default function EditProductPage() {
     const fetchData = async () => {
       if (!id) return;
       try {
-        const [catRes, prodRes] = await Promise.all([
-          getAllCategories(),
-          fetch(`/api/product/${id}`).then((res) => res.json()),
+        const [catResult, prodResult] = await Promise.all([
+          handleGetAllCategories(),
+          handleGetProductById(id as string),
         ]);
 
-        if (catRes.success) setCategories(catRes.categories);
-        else if (Array.isArray(catRes)) setCategories(catRes);
+        if (catResult.success && catResult.categories) {
+          setCategories(catResult.categories);
+        }
 
-        const p = prodRes.product || prodRes.data || prodRes;
-        if (p) {
+        if (prodResult.success && prodResult.product) {
+          const p = prodResult.product;
           setFormData({
             name: p.name || "",
             category: p.category?._id || p.category || "",
@@ -114,31 +119,26 @@ export default function EditProductPage() {
     setIsSubmitting(true);
 
     try {
-      const data = new FormData();
-      Object.entries(formData).forEach(([key, value]) =>
-        data.append(key, value),
-      );
-      data.append("business", businessId || "");
-
-      if (selectedFile) {
-        data.append("image", selectedFile);
-      }
-
-      const res = await fetch(`/api/product/${id}`, {
-        method: "PUT",
-        body: data,
+      const formDataToSend = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        formDataToSend.append(key, value);
       });
 
-      if (res.ok) {
+      if (selectedFile) {
+        formDataToSend.append("image", selectedFile);
+      }
+
+      const result = await handleUpdateProduct(id as string, formDataToSend);
+
+      if (result.success) {
         setSnackbar({
           message: "Product updated successfully!",
           type: "success",
         });
         setTimeout(() => router.push("/business/products"), 1500);
       } else {
-        const errorData = await res.json();
         setSnackbar({
-          message: errorData.message || "Update failed",
+          message: result.message || "Update failed",
           type: "error",
         });
       }
@@ -165,7 +165,6 @@ export default function EditProductPage() {
         <BusinessHeader showBackButton={true} backUrl="/business/products" />
 
         <div className="p-8 max-w-5xl mx-auto">
-          {/* Breadcrumb - UI Exact Match */}
           <div className="flex items-center gap-2 text-sm mb-6">
             <Link
               href="/business/dashboard"
@@ -193,7 +192,6 @@ export default function EditProductPage() {
 
           <form onSubmit={handleSave} className="space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Left Column - Image (Mirroring your Profile Edit style) */}
               <div className="lg:col-span-1">
                 <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 sticky top-24">
                   <h2 className="text-lg font-bold text-gray-900 mb-4">
@@ -228,7 +226,6 @@ export default function EditProductPage() {
                 </div>
               </div>
 
-              {/* Right Column - Same Fields from Add Product */}
               <div className="lg:col-span-2 space-y-6">
                 <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6">
                   <div className="space-y-6">

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import UserSidebar from "../../_components/UserSidebar";
 import UserHeader from "../../_components/UserHeader";
-import { getOrderById } from "@/lib/api/order";
+import { handleGetOrderById } from "@/lib/actions/order-actions";
 
 type OrderItem = {
   product: string;
@@ -151,8 +151,15 @@ export default function OrderDetailsPage() {
     const fetchOrderDetails = async () => {
       try {
         setLoading(true);
-        const response = await getOrderById(orderId);
-        setOrder(response.order);
+        const result = await handleGetOrderById(orderId);
+        if (result.success && result.order) {
+          setOrder(result.order);
+        } else {
+          setSnackbar({
+            message: result.message || "Failed to load order details",
+            type: "error",
+          });
+        }
       } catch (error: any) {
         console.error("Error fetching order:", error);
         setSnackbar({
@@ -211,7 +218,6 @@ export default function OrderDetailsPage() {
   };
 
   const handleDownloadInvoice = () => {
-    // Implement invoice download
     console.log("Download invoice for order:", orderId);
   };
 
@@ -285,7 +291,6 @@ export default function OrderDetailsPage() {
         <UserHeader />
 
         <div className="p-8 max-w-7xl mx-auto">
-          {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm mb-6">
             <Link
               href="/auth/dashboard"
@@ -306,7 +311,6 @@ export default function OrderDetailsPage() {
             </span>
           </div>
 
-          {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
@@ -346,7 +350,6 @@ export default function OrderDetailsPage() {
             </div>
           </div>
 
-          {/* Status Banner */}
           <div
             className={`mb-8 p-6 rounded-2xl flex items-center gap-4 ${getStatusColor(
               order.orderStatus,
@@ -385,7 +388,6 @@ export default function OrderDetailsPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Order Items */}
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 overflow-hidden">
                 <div className="p-6 border-b border-gray-100">
@@ -441,7 +443,6 @@ export default function OrderDetailsPage() {
                 </div>
               </div>
 
-              {/* Shipping Address */}
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 overflow-hidden">
                 <div className="p-6 border-b border-gray-100">
                   <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -479,7 +480,6 @@ export default function OrderDetailsPage() {
               </div>
             </div>
 
-            {/* Order Summary */}
             <div className="lg:col-span-1 space-y-6">
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 sticky top-24">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">
@@ -548,7 +548,6 @@ export default function OrderDetailsPage() {
                 </div>
               </div>
 
-              {/* Need Help? */}
               <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6">
                 <h3 className="font-bold text-gray-900 mb-2">Need Help?</h3>
                 <p className="text-sm text-gray-600 mb-4">
