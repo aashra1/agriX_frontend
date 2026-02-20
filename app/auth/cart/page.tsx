@@ -11,22 +11,21 @@ import {
   Trash2,
   Plus,
   Minus,
-  ArrowLeft,
   Package,
   Truck,
   Shield,
   RotateCcw,
-  Heart,
   AlertCircle,
 } from "lucide-react";
 import UserSidebar from "../_components/UserSidebar";
 import UserHeader from "../_components/UserHeader";
+
 import {
-  getCart,
-  updateCartItem,
-  removeFromCart,
-  clearCart,
-} from "@/lib/api/cart";
+  handleGetCart,
+  handleUpdateCartItem,
+  handleRemoveFromCart,
+  handleClearCart,
+} from "@/lib/actions/cart-actions";
 
 type CartItem = {
   _id: string;
@@ -74,7 +73,6 @@ export default function CartPage() {
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
 
-  // Auto-hide snackbar
   useEffect(() => {
     if (snackbar.type) {
       const timer = setTimeout(() => {
@@ -84,35 +82,103 @@ export default function CartPage() {
     }
   }, [snackbar.type]);
 
-  // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/auth/login");
     }
   }, [user, authLoading, router]);
 
-  // Fetch cart
   useEffect(() => {
-    const fetchCart = async () => {
+    const fetchCartData = async () => {
       try {
         setLoading(true);
-        const response = await getCart();
-        setCart(response.cart);
+        const result = await handleGetCart();
+        if (result.success) {
+          setCart(result.cart);
+        } else {
+          setSnackbar({
+            message: result.message || "Failed to load cart",
+            type: "error",
+          });
+        }
       } catch (error: any) {
-        console.error("Error fetching cart:", error);
-        setSnackbar({
-          message: error.message || "Failed to load cart",
-          type: "error",
-        });
+        setSnackbar({ message: "An unexpected error occurred", type: "error" });
       } finally {
         setLoading(false);
       }
     };
 
-    if (user) {
-      fetchCart();
-    }
+    if (user) fetchCartData();
   }, [user]);
+
+  const onUpdateQuantity = async (item: CartItem, newQuantity: number) => {
+    if (newQuantity < 1 || newQuantity > item.product.stock) return;
+
+    setUpdatingItems((prev) => new Set(prev).add(item.product._id));
+    try {
+      const result = await handleUpdateCartItem(item.product._id, {
+        quantity: newQuantity,
+      });
+      if (result.success) {
+        setCart(result.cart);
+      } else {
+        setSnackbar({
+          message: result.message || "Update failed",
+          type: "error",
+        });
+      }
+    } catch (error: any) {
+      setSnackbar({ message: "Error updating quantity", type: "error" });
+    } finally {
+      setUpdatingItems((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(item.product._id);
+        return newSet;
+      });
+    }
+  };
+
+  const onRemoveItem = async (productId: string) => {
+    setUpdatingItems((prev) => new Set(prev).add(productId));
+    try {
+      const result = await handleRemoveFromCart(productId);
+      if (result.success) {
+        setCart(result.cart);
+        setSnackbar({ message: "Item removed", type: "success" });
+      } else {
+        setSnackbar({
+          message: result.message || "Remove failed",
+          type: "error",
+        });
+      }
+    } catch (error: any) {
+      setSnackbar({ message: "Error removing item", type: "error" });
+    } finally {
+      setUpdatingItems((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(productId);
+        return newSet;
+      });
+    }
+  };
+
+  const onClearCart = async () => {
+    if (!cart?.items.length) return;
+    try {
+      const result = await handleClearCart();
+      if (result.success) {
+        setCart(result.cart);
+        setSnackbar({ message: "Cart cleared", type: "success" });
+      } else {
+        setSnackbar({
+          message: result.message || "Clear failed",
+          type: "error",
+        });
+      }
+    } catch (error) {
+      setSnackbar({ message: "Error clearing cart", type: "error" });
+    }
+  };
 
   const getProductImageUrl = (imagePath?: string) => {
     if (!imagePath) return null;
@@ -125,7 +191,6 @@ export default function CartPage() {
       style: "currency",
       currency: "NPR",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
     }).format(amount);
   };
 
@@ -136,106 +201,11 @@ export default function CartPage() {
     return price * item.quantity;
   };
 
-  const handleUpdateQuantity = async (item: CartItem, newQuantity: number) => {
-    if (newQuantity < 1 || newQuantity > item.product.stock) return;
-
-    setUpdatingItems((prev) => new Set(prev).add(item.product._id));
-
-    try {
-      const response = await updateCartItem(item.product._id, {
-        quantity: newQuantity,
-      });
-      setCart(response.cart);
-    } catch (error: any) {
-      console.error("Error updating cart:", error);
-      setSnackbar({
-        message: error.message || "Failed to update cart",
-        type: "error",
-      });
-    } finally {
-      setUpdatingItems((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(item.product._id);
-        return newSet;
-      });
-    }
-  };
-
-  const handleRemoveItem = async (productId: string) => {
-    setUpdatingItems((prev) => new Set(prev).add(productId));
-
-    try {
-      const response = await removeFromCart(productId);
-      setCart(response.cart);
-      setSnackbar({
-        message: "Item removed from cart",
-        type: "success",
-      });
-    } catch (error: any) {
-      console.error("Error removing item:", error);
-      setSnackbar({
-        message: error.message || "Failed to remove item",
-        type: "error",
-      });
-    } finally {
-      setUpdatingItems((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(productId);
-        return newSet;
-      });
-    }
-  };
-
-  const handleClearCart = async () => {
-    if (!cart?.items.length) return;
-
-    try {
-      const response = await clearCart();
-      setCart(response.cart);
-      setSnackbar({
-        message: "Cart cleared successfully",
-        type: "success",
-      });
-    } catch (error: any) {
-      console.error("Error clearing cart:", error);
-      setSnackbar({
-        message: error.message || "Failed to clear cart",
-        type: "error",
-      });
-    }
-  };
-
-  const handleCheckout = () => {
-    router.push("/auth/checkout");
-  };
-
-  const handleContinueShopping = () => {
-    router.push("/auth/dashboard");
-  };
-
-  const Snackbar = ({ message, type }: SnackbarState) => {
-    if (!type) return null;
-    return (
-      <div
-        className={`fixed bottom-6 right-6 px-6 py-3 rounded-xl shadow-lg z-50 transition-all duration-300 transform animate-slide-up ${
-          type === "success" ? "bg-green-600" : "bg-red-600"
-        } text-white`}
-      >
-        {message}
-      </div>
-    );
-  };
-
+  // --- Render Logic ---
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center font-crimsonpro bg-gradient-to-br from-green-50 via-white to-emerald-50">
-        <div className="relative">
-          <div
-            className="animate-spin rounded-full h-12 w-12 border-3 border-t-transparent"
-            style={{ borderColor: "#0B3D0B", borderTopColor: "transparent" }}
-          ></div>
-          <div className="absolute inset-0 rounded-full bg-green-100 opacity-20 animate-ping"></div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-emerald-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-3 border-green-900 border-t-transparent"></div>
       </div>
     );
   }
@@ -250,7 +220,6 @@ export default function CartPage() {
         <UserHeader />
 
         <div className="p-8 max-w-7xl mx-auto">
-          {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm mb-6">
             <Link
               href="/auth/dashboard"
@@ -262,7 +231,6 @@ export default function CartPage() {
             <span className="text-green-800 font-medium">My Cart</span>
           </div>
 
-          {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
@@ -275,11 +243,10 @@ export default function CartPage() {
             </div>
             {!isCartEmpty && (
               <button
-                onClick={handleClearCart}
+                onClick={onClearCart}
                 className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 border border-red-200 hover:border-red-300 rounded-xl transition-colors"
               >
-                <Trash2 size={18} />
-                Clear Cart
+                <Trash2 size={18} /> Clear Cart
               </button>
             )}
           </div>
@@ -292,12 +259,8 @@ export default function CartPage() {
               <h2 className="text-2xl font-bold text-gray-800 mb-3">
                 Your cart is empty
               </h2>
-              <p className="text-gray-500 mb-8 max-w-md mx-auto">
-                Looks like you haven't added any items to your cart yet. Start
-                shopping to add items.
-              </p>
               <button
-                onClick={handleContinueShopping}
+                onClick={() => router.push("/auth/dashboard")}
                 className="px-8 py-3 bg-green-800 text-white font-medium rounded-xl hover:bg-green-900 transition-colors"
               >
                 Continue Shopping
@@ -305,132 +268,89 @@ export default function CartPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Cart Items */}
+              {/* Items List */}
               <div className="lg:col-span-2 space-y-4">
                 {cart.items.map((item) => {
                   const itemImageUrl = getProductImageUrl(item.product.image);
                   const isUpdating = updatingItems.has(item.product._id);
-                  const itemTotal = getItemPrice(item);
-                  const maxStock = item.product.stock;
-
                   return (
                     <div
                       key={item._id}
-                      className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 hover:shadow-md transition-all duration-300"
+                      className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6"
                     >
                       <div className="flex gap-6">
-                        {/* Product Image */}
-                        <Link
-                          href={`/auth/products/${item.product._id}`}
-                          className="shrink-0 w-24 h-24 bg-gray-50 rounded-xl overflow-hidden border border-gray-100"
-                        >
+                        <div className="shrink-0 w-24 h-24 bg-gray-50 rounded-xl overflow-hidden border">
                           {itemImageUrl ? (
                             <img
                               src={itemImageUrl}
                               alt={item.product.name}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src =
-                                  "/images/placeholder-product.png";
-                              }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <Package size={32} className="text-gray-400" />
                             </div>
                           )}
-                        </Link>
+                        </div>
 
-                        {/* Product Details */}
                         <div className="flex-1">
                           <div className="flex justify-between mb-2">
-                            <Link
-                              href={`/auth/products/${item.product._id}`}
-                              className="font-semibold text-gray-900 hover:text-green-800 transition-colors"
-                            >
+                            <h3 className="font-semibold text-gray-900">
                               {item.product.name}
-                            </Link>
+                            </h3>
                             <button
-                              onClick={() => handleRemoveItem(item.product._id)}
+                              onClick={() => onRemoveItem(item.product._id)}
                               disabled={isUpdating}
-                              className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                              className="text-gray-400 hover:text-red-500"
                             >
                               <Trash2 size={18} />
                             </button>
                           </div>
-
                           <p className="text-sm text-gray-500 mb-3">
                             Seller: {item.product.business.businessName}
                           </p>
 
                           <div className="flex items-center justify-between">
-                            {/* Quantity Controls */}
                             <div className="flex items-center gap-3">
-                              <span className="text-sm text-gray-600">
-                                Qty:
-                              </span>
-                              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                              <div className="flex items-center border rounded-lg overflow-hidden">
                                 <button
                                   onClick={() =>
-                                    handleUpdateQuantity(
-                                      item,
-                                      item.quantity - 1,
-                                    )
+                                    onUpdateQuantity(item, item.quantity - 1)
                                   }
                                   disabled={item.quantity <= 1 || isUpdating}
-                                  className="w-8 h-8 flex items-center justify-center bg-gray-50 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="w-8 h-8 bg-gray-50 hover:bg-gray-100 disabled:opacity-30"
                                 >
                                   <Minus size={14} />
                                 </button>
                                 <span className="w-10 text-center text-sm font-medium">
-                                  {isUpdating ? (
-                                    <div className="w-4 h-4 border-2 border-green-800 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                                  ) : (
-                                    item.quantity
-                                  )}
+                                  {isUpdating ? "..." : item.quantity}
                                 </span>
                                 <button
                                   onClick={() =>
-                                    handleUpdateQuantity(
-                                      item,
-                                      item.quantity + 1,
-                                    )
+                                    onUpdateQuantity(item, item.quantity + 1)
                                   }
                                   disabled={
-                                    item.quantity >= maxStock || isUpdating
+                                    item.quantity >= item.product.stock ||
+                                    isUpdating
                                   }
-                                  className="w-8 h-8 flex items-center justify-center bg-gray-50 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="w-8 h-8 bg-gray-50 hover:bg-gray-100 disabled:opacity-30"
                                 >
                                   <Plus size={14} />
                                 </button>
                               </div>
-                              {item.quantity >= maxStock && (
+                              {item.quantity >= item.product.stock && (
                                 <span className="text-xs text-amber-600 flex items-center gap-1">
-                                  <AlertCircle size={12} />
-                                  Max stock
+                                  <AlertCircle size={12} /> Max stock
                                 </span>
                               )}
                             </div>
-
-                            {/* Price */}
                             <div className="text-right">
-                              {item.product.discount ? (
-                                <>
-                                  <p className="text-lg font-bold text-green-800">
-                                    {formatCurrency(itemTotal)}
-                                  </p>
-                                  <p className="text-xs text-gray-400 line-through">
-                                    {formatCurrency(
-                                      item.product.price * item.quantity,
-                                    )}
-                                  </p>
-                                  <p className="text-xs text-green-600">
-                                    {item.product.discount}% off
-                                  </p>
-                                </>
-                              ) : (
-                                <p className="text-lg font-bold text-green-800">
-                                  {formatCurrency(itemTotal)}
+                              <p className="text-lg font-bold text-green-800">
+                                {formatCurrency(getItemPrice(item))}
+                              </p>
+                              {item.product.discount && (
+                                <p className="text-xs text-green-600">
+                                  {item.product.discount}% off
                                 </p>
                               )}
                             </div>
@@ -442,70 +362,47 @@ export default function CartPage() {
                 })}
               </div>
 
-              {/* Order Summary */}
               <div className="lg:col-span-1">
                 <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 sticky top-24">
                   <h2 className="text-xl font-bold text-gray-900 mb-6">
                     Order Summary
                   </h2>
-
                   <div className="space-y-4 mb-6">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Subtotal</span>
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium">
                         {formatCurrency(cart.totalAmount)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Shipping</span>
-                      <span className="font-medium text-green-600">Free</span>
+                      <span className="text-green-600">Free</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Tax</span>
-                      <span className="font-medium text-gray-900">
-                        {formatCurrency(0)}
+                    <div className="border-t pt-4 flex justify-between">
+                      <span className="font-bold">Total</span>
+                      <span className="text-2xl font-bold text-green-800">
+                        {formatCurrency(cart.totalAmount)}
                       </span>
                     </div>
-                    <div className="border-t border-gray-200 pt-4">
-                      <div className="flex justify-between">
-                        <span className="font-bold text-gray-900">Total</span>
-                        <span className="text-2xl font-bold text-green-800">
-                          {formatCurrency(cart.totalAmount)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Including all taxes
-                      </p>
-                    </div>
                   </div>
-
                   <button
-                    onClick={handleCheckout}
-                    className="w-full bg-green-800 text-white py-4 rounded-xl font-medium hover:bg-green-900 transition-colors mb-3"
+                    onClick={() => router.push("/auth/checkout")}
+                    className="w-full bg-green-800 text-white py-4 rounded-xl mb-3 hover:bg-green-900"
                   >
                     Proceed to Checkout
                   </button>
-
-                  <button
-                    onClick={handleContinueShopping}
-                    className="w-full border-2 border-gray-200 text-gray-700 py-4 rounded-xl font-medium hover:border-green-800 hover:text-green-800 transition-colors"
-                  >
-                    Continue Shopping
-                  </button>
-
-                  {/* Delivery Info */}
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
-                      <Truck size={18} className="text-green-700" />
-                      <span>Free delivery on all orders</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
-                      <Shield size={18} className="text-green-700" />
-                      <span>Secure payment</span>
+                  <div className="mt-6 space-y-3">
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <Truck size={18} className="text-green-700" /> Free
+                      delivery
                     </div>
                     <div className="flex items-center gap-3 text-sm text-gray-600">
-                      <RotateCcw size={18} className="text-green-700" />
-                      <span>7 days return policy</span>
+                      <Shield size={18} className="text-green-700" /> Secure
+                      payment
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <RotateCcw size={18} className="text-green-700" /> 7 days
+                      return
                     </div>
                   </div>
                 </div>
@@ -515,7 +412,13 @@ export default function CartPage() {
         </div>
       </main>
 
-      <Snackbar message={snackbar.message} type={snackbar.type} />
+      {snackbar.type && (
+        <div
+          className={`fixed bottom-6 right-6 px-6 py-3 rounded-xl shadow-lg z-50 animate-slide-up text-white ${snackbar.type === "success" ? "bg-green-600" : "bg-red-600"}`}
+        >
+          {snackbar.message}
+        </div>
+      )}
 
       <style jsx global>{`
         @keyframes slide-up {

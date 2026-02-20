@@ -15,7 +15,10 @@ import {
 } from "lucide-react";
 import BusinessSidebar from "../_components/BusinessSidebar";
 import BusinessHeader from "../_components/BusinessHeader";
-import { deleteProduct, getBusinessProducts } from "@/lib/api/products";
+import {
+  handleGetBusinessProducts,
+  handleDeleteProduct,
+} from "@/lib/actions/product-actions";
 
 type Product = {
   _id: string;
@@ -63,19 +66,20 @@ export default function BusinessProductsPage() {
 
       setIsLoading(true);
       try {
-        const response = await getBusinessProducts();
-        if (response.success && Array.isArray(response.products)) {
-          setProducts(response.products);
-          setFilteredProducts(response.products);
-        } else if (Array.isArray(response)) {
-          setProducts(response);
-          setFilteredProducts(response);
-        } else if (response.data && Array.isArray(response.data)) {
-          setProducts(response.data);
-          setFilteredProducts(response.data);
+        const result = await handleGetBusinessProducts();
+
+        if (result.success && result.products) {
+          setProducts(result.products);
+          setFilteredProducts(result.products);
         } else {
           setProducts([]);
           setFilteredProducts([]);
+          if (result.message) {
+            setSnackbar({
+              message: result.message,
+              type: "error",
+            });
+          }
         }
       } catch (error: any) {
         setSnackbar({
@@ -112,14 +116,24 @@ export default function BusinessProductsPage() {
 
   const handleDelete = async (productId: string) => {
     try {
-      await deleteProduct(productId);
-      setProducts(products.filter((p) => p._id !== productId));
-      setFilteredProducts(filteredProducts.filter((p) => p._id !== productId));
-      setSnackbar({
-        message: "Product deleted successfully!",
-        type: "success",
-      });
-      setTimeout(() => setSnackbar({ message: "", type: null }), 3000);
+      const result = await handleDeleteProduct(productId);
+
+      if (result.success) {
+        setProducts(products.filter((p) => p._id !== productId));
+        setFilteredProducts(
+          filteredProducts.filter((p) => p._id !== productId),
+        );
+        setSnackbar({
+          message: "Product deleted successfully!",
+          type: "success",
+        });
+        setTimeout(() => setSnackbar({ message: "", type: null }), 3000);
+      } else {
+        setSnackbar({
+          message: result.message || "Failed to delete product",
+          type: "error",
+        });
+      }
       setDeleteConfirm(null);
     } catch (error: any) {
       setSnackbar({

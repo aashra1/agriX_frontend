@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   ShoppingBag,
 } from "lucide-react";
+import { handleVerifyKhaltiPayment } from "@/lib/actions/payment-actions";
 
 export default function PaymentVerifyPage() {
   const router = useRouter();
@@ -30,28 +31,17 @@ export default function PaymentVerifyPage() {
         setOrderId(orderIdParam);
 
         if (paymentStatus === "Completed" && pidx && orderIdParam) {
-          // Use the cookie-based API route
-          const response = await fetch("/api/payment/verify", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ pidx, orderId: orderIdParam }),
+          const result = await handleVerifyKhaltiPayment({
+            pidx,
+            orderId: orderIdParam,
           });
 
-          const data = await response.json();
-
-          if (response.status === 401) {
-            router.push("/auth/login?redirect=auth/payment/verify");
-            return;
-          }
-
-          if (data.success) {
+          if (result.success) {
             setStatus("success");
             setMessage("Payment successful! Your order has been placed.");
           } else {
             setStatus("failed");
-            setMessage(data.message || "Payment verification failed");
+            setMessage(result.message || "Payment verification failed");
           }
         } else if (
           paymentStatus === "Failed" ||

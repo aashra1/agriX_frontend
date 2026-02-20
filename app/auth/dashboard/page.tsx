@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { API } from "@/lib/api/endpoints";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -14,13 +13,8 @@ import {
 } from "lucide-react";
 import UserSidebar from "../_components/UserSidebar";
 import UserHeader from "../_components/UserHeader";
-
-type Category = {
-  _id: string;
-  name: string;
-  description: string;
-  parentCategory: string | null;
-};
+import { handleGetAllCategories } from "@/lib/actions/category-actions";
+import { Category } from "@/lib/api/category";
 
 const categoryIcons: { [key: string]: string } = {
   "Seeds & Plants": "/icons/seeds.png",
@@ -42,10 +36,12 @@ export default function UserDashboard() {
     const fetchCategories = async () => {
       try {
         setCategoriesLoading(true);
-        const res = await fetch(API.CATEGORY.GET_ALL, { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to fetch categories");
-        const data = await res.json();
-        setCategories(data.categories || data.data || []);
+        const result = await handleGetAllCategories();
+        if (result.success && result.categories) {
+          setCategories(result.categories);
+        } else {
+          setCategoriesError(result.message || "Failed to load categories");
+        }
       } catch (error) {
         setCategoriesError("Failed to load categories");
       } finally {
@@ -163,6 +159,10 @@ export default function UserDashboard() {
                     ></div>
                   </div>
                 </div>
+              ) : categoriesError ? (
+                <div className="h-64 flex items-center justify-center bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50">
+                  <p className="text-red-500">{categoriesError}</p>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   {categories.map((cat, index) => (
@@ -227,7 +227,6 @@ export default function UserDashboard() {
               )}
             </div>
 
-            {/* Right: Top Offers */}
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">

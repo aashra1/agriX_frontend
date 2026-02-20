@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import UserSidebar from "../_components/UserSidebar";
 import UserHeader from "../_components/UserHeader";
-import { getUserOrders } from "@/lib/api/order";
+import { handleGetUserOrders } from "@/lib/actions/order-actions";
 
 type OrderItem = {
   product: string;
@@ -142,9 +142,21 @@ export default function OrdersPage() {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        const response = await getUserOrders(pagination.page, pagination.limit);
-        setOrders(response.orders);
-        setPagination(response.pagination);
+        const result = await handleGetUserOrders(
+          pagination.page,
+          pagination.limit,
+        );
+        if (result.success && result.orders) {
+          setOrders(result.orders);
+          if (result.pagination) {
+            setPagination(result.pagination);
+          }
+        } else {
+          setSnackbar({
+            message: result.message || "Failed to load orders",
+            type: "error",
+          });
+        }
       } catch (error: any) {
         console.error("Error fetching orders:", error);
         setSnackbar({
@@ -220,7 +232,6 @@ export default function OrdersPage() {
         <UserHeader />
 
         <div className="p-8 max-w-7xl mx-auto">
-          {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm mb-6">
             <Link
               href="/auth/dashboard"
@@ -232,7 +243,6 @@ export default function OrdersPage() {
             <span className="text-green-800 font-medium">My Orders</span>
           </div>
 
-          {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
@@ -278,7 +288,6 @@ export default function OrdersPage() {
                   className="block bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 group"
                 >
                   <div className="p-6">
-                    {/* Order Header */}
                     <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                       <div className="flex items-center gap-4">
                         <span className="text-sm font-mono text-gray-500">
@@ -313,7 +322,6 @@ export default function OrdersPage() {
                       </div>
                     </div>
 
-                    {/* Order Items Preview */}
                     <div className="flex items-center gap-4 mb-4">
                       <div className="flex -space-x-2">
                         {order.items.slice(0, 3).map((item, index) => (
@@ -355,7 +363,6 @@ export default function OrdersPage() {
                       />
                     </div>
 
-                    {/* Order Footer */}
                     <div className="flex items-center gap-4 text-xs text-gray-500 pt-4 border-t border-gray-100">
                       <span className="flex items-center gap-1">
                         <CreditCard size={14} />
@@ -377,7 +384,6 @@ export default function OrdersPage() {
                 </Link>
               ))}
 
-              {/* Pagination */}
               {pagination.pages > 1 && (
                 <div className="flex justify-center gap-2 mt-8">
                   <button

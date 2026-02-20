@@ -334,7 +334,6 @@ export default function EditProfilePage() {
                 </div>
               </div>
 
-              {/* Form Actions */}
               <div className="px-8 py-6 bg-gray-50/50 border-t border-gray-100 flex justify-end gap-3">
                 <button
                   type="button"

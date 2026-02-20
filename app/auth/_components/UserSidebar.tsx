@@ -89,7 +89,6 @@ export default function UserSidebar({
   className = "",
   navigationItems = [
     { href: "/auth/dashboard", icon: sidebarIcons.Home, label: "Home" },
-    { href: "/favorites", icon: sidebarIcons.Favorites, label: "Favorites" },
     { href: "/auth/cart", icon: sidebarIcons["My Cart"], label: "My Cart" },
     { href: "/auth/profile", icon: sidebarIcons.Profile, label: "Profile" },
     { href: "/auth/orders", icon: sidebarIcons.Orders, label: "Orders" },

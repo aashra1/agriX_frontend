@@ -11,6 +11,12 @@ import {
   RefreshCw,
   LogOut,
 } from "lucide-react";
+import {
+  handleGetAllUsers,
+  handleGetAllBusinesses,
+  handleApproveBusiness,
+  handleRejectBusiness,
+} from "@/lib/actions/admin-actions";
 
 export default function AdminDashboard() {
   const { logout } = useAuth();
@@ -23,15 +29,17 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState({
     users: false,
     businesses: false,
+    action: false,
   });
 
   const fetchUsers = async () => {
     setLoading((prev) => ({ ...prev, users: true }));
     try {
-      const res = await fetch("/api/admin/users", { cache: "no-store" });
-      const data = await res.json();
-      if (data.success) {
-        setUsers(data.users || data.data || []);
+      const result = await handleGetAllUsers();
+      if (result.success) {
+        setUsers(result.users || []);
+      } else {
+        console.error("Failed to fetch users:", result.message);
       }
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -43,10 +51,11 @@ export default function AdminDashboard() {
   const fetchBusinesses = async () => {
     setLoading((prev) => ({ ...prev, businesses: true }));
     try {
-      const res = await fetch("/api/admin/businesses", { cache: "no-store" });
-      const data = await res.json();
-      if (data.success) {
-        setBusinesses(data.businesses || data.data || []);
+      const result = await handleGetAllBusinesses();
+      if (result.success) {
+        setBusinesses(result.businesses || []);
+      } else {
+        console.error("Failed to fetch businesses:", result.message);
       }
     } catch (error) {
       console.error("Error fetching businesses:", error);
@@ -60,19 +69,11 @@ export default function AdminDashboard() {
     fetchBusinesses();
   }, []);
 
-  // In AdminDashboard.tsx
   const handleApprove = async (id: string) => {
+    setLoading((prev) => ({ ...prev, action: true }));
     try {
-      // Use the correct URL that matches your route structure
-      const res = await fetch(`/api/admin/businesses/${id}/approve`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "Approve" }),
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
+      const result = await handleApproveBusiness(id);
+      if (result.success) {
         setBusinesses((prev) =>
           prev.map((b) =>
             b._id === id
@@ -80,29 +81,22 @@ export default function AdminDashboard() {
               : b,
           ),
         );
-        alert("Business approved!");
+        alert("Business approved successfully!");
       } else {
-        alert(`Error: ${data.message}`);
+        alert(`Error: ${result.message}`);
       }
     } catch (error) {
-      console.error("Fetch error:", error);
+      console.error("Error approving business:", error);
+    } finally {
+      setLoading((prev) => ({ ...prev, action: false }));
     }
   };
 
   const handleReject = async (id: string) => {
+    setLoading((prev) => ({ ...prev, action: true }));
     try {
-      const res = await fetch(`/api/admin/businesses/${id}/approve`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "Reject",
-          reason: "Rejected by admin",
-        }),
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
+      const result = await handleRejectBusiness(id, "Rejected by admin");
+      if (result.success) {
         setBusinesses((prev) =>
           prev.map((b) =>
             b._id === id
@@ -110,10 +104,14 @@ export default function AdminDashboard() {
               : b,
           ),
         );
-        alert("Business rejected!");
+        alert("Business rejected successfully!");
+      } else {
+        alert(`Error: ${result.message}`);
       }
     } catch (error) {
       console.error("Error rejecting business:", error);
+    } finally {
+      setLoading((prev) => ({ ...prev, action: false }));
     }
   };
 
@@ -260,12 +258,15 @@ export default function AdminDashboard() {
                         {b.businessName}
                       </td>
                       <td className="py-4 px-6">{b.email}</td>
-                      <td className="py-4 px-6">{b.ownerName}</td>
+                      <td className="py-4 px-6">{b.ownerName || "N/A"}</td>
                       <td className="py-4 px-6">
-                        {b.businessVerified ||
-                        b.businessStatus === "Approved" ? (
+                        {b.businessStatus === "Approved" ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
                             Approved
+                          </span>
+                        ) : b.businessStatus === "Rejected" ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            Rejected
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
@@ -274,18 +275,19 @@ export default function AdminDashboard() {
                         )}
                       </td>
                       <td className="py-4 px-6 text-right">
-                        {!b.businessVerified &&
-                        b.businessStatus === "Pending" ? (
+                        {b.businessStatus === "Pending" ? (
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={() => handleApprove(b._id)}
-                              className="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700 transition"
+                              disabled={loading.action}
+                              className="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700 transition disabled:opacity-50"
                             >
                               Approve
                             </button>
                             <button
                               onClick={() => handleReject(b._id)}
-                              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition"
+                              disabled={loading.action}
+                              className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition disabled:opacity-50"
                             >
                               Reject
                             </button>
@@ -307,7 +309,7 @@ export default function AdminDashboard() {
     );
 
   const pendingBusinesses = businesses.filter(
-    (b) => !b.businessVerified && b.businessStatus === "Pending",
+    (b) => b.businessStatus === "Pending",
   ).length;
   const totalBusinesses = businesses.length;
 
@@ -426,7 +428,10 @@ export default function AdminDashboard() {
                 Verified Businesses:
               </span>
               <span className="font-medium">
-                {businesses.filter((b) => b.businessVerified).length}
+                {
+                  businesses.filter((b) => b.businessStatus === "Approved")
+                    .length
+                }
               </span>
             </div>
           </div>
@@ -456,9 +461,19 @@ export default function AdminDashboard() {
                   {business.businessName}
                 </span>
                 <span
-                  className={`text-xs px-2 py-0.5 rounded ${business.businessVerified ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}
+                  className={`text-xs px-2 py-0.5 rounded ${
+                    business.businessStatus === "Approved"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : business.businessStatus === "Rejected"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-amber-100 text-amber-800"
+                  }`}
                 >
-                  {business.businessVerified ? "✓" : "⏱"}
+                  {business.businessStatus === "Approved"
+                    ? "✓"
+                    : business.businessStatus === "Rejected"
+                      ? "✗"
+                      : "⏱"}
                 </span>
               </div>
             ))}

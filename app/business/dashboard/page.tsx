@@ -11,50 +11,30 @@ import {
   Package,
   ShoppingCart,
   Users,
-  DollarSign,
   PlusCircle,
   BarChart3,
   Clock,
+  Wallet,
 } from "lucide-react";
 import BusinessSidebar from "../_components/BusinessSidebar";
 import BusinessHeader from "../_components/BusinessHeader";
-import { getBusinessOrders } from "@/lib/api/order";
-import { Order } from "@/lib/api/order";
+import { handleGetBusinessDashboard } from "@/lib/actions/dashboard-actions";
 
-type Product = {
-  _id: string;
-  name: string;
-  image?: string;
-  price: number;
-  stock: number;
-  category?: {
-    _id: string;
-    name: string;
-  };
-  brand?: string;
-  discount?: number;
-};
-
-type DashboardStats = {
-  totalOrders: number;
-  totalCustomers: number;
-  revenue: number;
-  lowStock: number;
-  totalProducts: number;
+type DashboardData = {
+  products: any[];
+  orders: any[];
+  wallet: { balance: number; currency: string };
 };
 
 export default function BusinessDashboard() {
-  const { user, businessId, loading: authLoading } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalOrders: 0,
-    totalCustomers: 0,
-    revenue: 0,
-    lowStock: 0,
-    totalProducts: 0,
+  const { user, businessId } = useAuth();
+  const [data, setData] = useState<DashboardData>({
+    products: [],
+    orders: [],
+    wallet: { balance: 0, currency: "NPR" },
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
@@ -64,58 +44,22 @@ export default function BusinessDashboard() {
       if (!businessId) return;
 
       setIsLoading(true);
+      setError(null);
       try {
-        // Fetch products
-        const productsRes = await fetch(`/api/product/business`);
-        const productsData = await productsRes.json();
+        const result = await handleGetBusinessDashboard();
 
-        let fetchedProducts: Product[] = [];
-        if (productsData.success && Array.isArray(productsData.products)) {
-          fetchedProducts = productsData.products;
-        } else if (Array.isArray(productsData)) {
-          fetchedProducts = productsData;
-        } else if (productsData.data && Array.isArray(productsData.data)) {
-          fetchedProducts = productsData.data;
+        if (result.success) {
+          setData({
+            products: result.products || [],
+            orders: result.orders || [],
+            wallet: result.wallet || { balance: 0, currency: "NPR" },
+          });
+        } else {
+          setError(result.message || "Failed to fetch dashboard data");
         }
-
-        setProducts(fetchedProducts);
-
-        // Fetch orders
-        const ordersResponse = await getBusinessOrders(1, 10);
-        const fetchedOrders = ordersResponse.orders || [];
-        setOrders(fetchedOrders);
-
-        // Calculate stats
-        const lowStockCount = fetchedProducts.filter(
-          (p) => (p.stock || 0) < 10,
-        ).length;
-
-        // Calculate revenue from delivered orders
-        const totalRevenue = fetchedOrders
-          .filter((order) => order.orderStatus === "delivered")
-          .reduce((sum, order) => sum + order.total, 0);
-
-        // Get unique customers count
-        const uniqueCustomers = new Set(
-          fetchedOrders
-            .map((order) => {
-              if (typeof order.user === "object" && order.user !== null) {
-                return (order.user as { _id?: string })._id;
-              }
-              return order.user as string;
-            })
-            .filter(Boolean),
-        ).size;
-
-        setStats({
-          totalOrders: fetchedOrders.length,
-          totalCustomers: uniqueCustomers,
-          revenue: totalRevenue,
-          lowStock: lowStockCount,
-          totalProducts: fetchedProducts.length,
-        });
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
+        setError("An unexpected error occurred");
       } finally {
         setIsLoading(false);
       }
@@ -126,7 +70,7 @@ export default function BusinessDashboard() {
     }
   }, [businessId]);
 
-  const getProductImageUrl = (product: Product) => {
+  const getProductImageUrl = (product: any) => {
     if (product.image) {
       const fileName = product.image.split(/[\\/]/).pop();
       return `${baseUrl}/uploads/product-images/${fileName}`;
@@ -160,9 +104,9 @@ export default function BusinessDashboard() {
     }
   };
 
-  const getCustomerName = (order: Order): string => {
+  const getCustomerName = (order: any): string => {
     if (typeof order.user === "object" && order.user !== null) {
-      return (order.user as { fullName?: string }).fullName || "N/A";
+      return order.user?.fullName || "N/A";
     }
     return "Customer";
   };
@@ -171,7 +115,22 @@ export default function BusinessDashboard() {
     return `#${id.slice(-6)}`;
   };
 
-  if (authLoading || isLoading) {
+  const lowStockCount = data.products.filter((p) => (p.stock || 0) < 10).length;
+  const pendingOrdersCount = data.orders.filter(
+    (o) => o.orderStatus === "pending",
+  ).length;
+  const uniqueCustomers = new Set(
+    data.orders
+      .map((order) => {
+        if (typeof order.user === "object" && order.user !== null) {
+          return order.user?._id;
+        }
+        return order.user;
+      })
+      .filter(Boolean),
+  ).size;
+
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center font-crimsonpro bg-gradient-to-br from-green-50 via-white to-emerald-50">
         <div className="relative">
@@ -180,6 +139,23 @@ export default function BusinessDashboard() {
             style={{ borderColor: "#0B3D0B", borderTopColor: "transparent" }}
           ></div>
           <div className="absolute inset-0 rounded-full bg-green-100 opacity-20 animate-ping"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center font-crimsonpro bg-gradient-to-br from-red-50 via-white to-red-50">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-green-800 text-white rounded-xl hover:bg-green-900 transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -224,56 +200,69 @@ export default function BusinessDashboard() {
                   Track orders, manage inventory, and grow your agricultural
                   business.
                 </p>
-                <Link
-                  href="/business/products/add-products"
-                  className="mt-8 inline-flex items-center gap-3 bg-[#FFDE7C] text-black font-semibold px-8 py-3.5 rounded-xl shadow-lg transition-all hover:shadow-2xl group/btn"
-                  style={{ backgroundColor: "#FFDE7C" }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-2px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)";
-                  }}
-                >
-                  <PlusCircle size={20} />
-                  Add New Product
-                  <ArrowRight
-                    size={18}
-                    className="group-hover/btn:translate-x-1 transition-transform"
-                  />
-                </Link>
+                <div className="flex gap-4 mt-8">
+                  <Link
+                    href="/business/products/add-products"
+                    className="inline-flex items-center gap-3 bg-[#FFDE7C] text-black font-semibold px-8 py-3.5 rounded-xl shadow-lg transition-all hover:shadow-2xl group/btn"
+                    style={{ backgroundColor: "#FFDE7C" }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }}
+                  >
+                    <PlusCircle size={20} />
+                    Add New Product
+                    <ArrowRight
+                      size={18}
+                      className="group-hover/btn:translate-x-1 transition-transform"
+                    />
+                  </Link>
+                  <Link
+                    href="/business/payments"
+                    className="inline-flex items-center gap-3 bg-white/20 backdrop-blur-sm text-white font-semibold px-8 py-3.5 rounded-xl shadow-lg transition-all hover:bg-white/30 group/btn border border-white/30"
+                  >
+                    <Wallet size={20} />
+                    View Payments
+                    <ArrowRight
+                      size={18}
+                      className="group-hover/btn:translate-x-1 transition-transform"
+                    />
+                  </Link>
+                </div>
               </div>
             </div>
           </section>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <StatCard
-              icon={<DollarSign size={24} />}
-              label="Total Revenue"
-              value={formatCurrency(stats.revenue)}
-              trend={`${stats.totalOrders} orders`}
+              icon={<Wallet size={24} />}
+              label="Wallet Balance"
+              value={formatCurrency(data.wallet.balance)}
+              trend="Available balance"
               trendUp={true}
             />
             <StatCard
               icon={<ShoppingCart size={24} />}
               label="Total Orders"
-              value={stats.totalOrders.toString()}
-              trend={`${stats.totalOrders} total`}
+              value={data.orders.length.toString()}
+              trend={`${pendingOrdersCount} pending`}
               trendUp={true}
             />
             <StatCard
               icon={<Users size={24} />}
               label="Customers"
-              value={stats.totalCustomers.toString()}
-              trend={`unique buyers`}
+              value={uniqueCustomers.toString()}
+              trend="unique buyers"
               trendUp={true}
             />
             <StatCard
               icon={<Package size={24} />}
               label="Products"
-              value={stats.totalProducts.toString()}
-              trend={`${stats.lowStock} low stock`}
-              trendUp={stats.lowStock === 0}
+              value={data.products.length.toString()}
+              trend={`${lowStockCount} low stock`}
+              trendUp={lowStockCount === 0}
             />
           </div>
 
@@ -288,9 +277,9 @@ export default function BusinessDashboard() {
                     </h2>
                   </div>
                   <p className="text-gray-600 text-sm ml-3">
-                    {stats.totalProducts}{" "}
-                    {stats.totalProducts === 1 ? "product" : "products"} in your
-                    inventory
+                    {data.products.length}{" "}
+                    {data.products.length === 1 ? "product" : "products"} in
+                    your inventory
                   </p>
                 </div>
                 <Link
@@ -303,7 +292,7 @@ export default function BusinessDashboard() {
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {products.slice(0, 4).map((product, index) => {
+                {data.products.slice(0, 4).map((product, index) => {
                   const productImageUrl = getProductImageUrl(product);
 
                   return (
@@ -369,7 +358,7 @@ export default function BusinessDashboard() {
                 })}
               </div>
 
-              {stats.totalProducts === 0 && (
+              {data.products.length === 0 && (
                 <div className="bg-white/90 rounded-2xl p-12 text-center border-2 border-dashed border-gray-300">
                   <Package size={48} className="mx-auto text-gray-400 mb-4" />
                   <h3 className="text-xl font-bold text-gray-700 mb-2">
@@ -384,21 +373,6 @@ export default function BusinessDashboard() {
                   >
                     <PlusCircle size={18} />
                     Add Your First Product
-                  </Link>
-                </div>
-              )}
-
-              {stats.totalProducts > 4 && (
-                <div className="flex justify-center mt-4">
-                  <Link
-                    href="/business/products"
-                    className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-300 rounded-xl hover:border-green-800 hover:bg-green-50 transition-all text-gray-600 hover:text-green-800"
-                  >
-                    <Package size={18} />
-                    <span className="font-medium text-sm">
-                      View All {stats.totalProducts} Products
-                    </span>
-                    <ChevronRight size={16} />
                   </Link>
                 </div>
               )}
@@ -417,14 +391,14 @@ export default function BusinessDashboard() {
                   className="font-semibold flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors"
                   style={{ color: "#0B3D0B" }}
                 >
-                  View All ({stats.totalOrders})
+                  View All ({data.orders.length})
                   <ChevronRight size={16} />
                 </Link>
               </div>
 
               <div className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl overflow-hidden shadow-sm">
-                {orders.length > 0 ? (
-                  orders.slice(0, 5).map((order, index) => (
+                {data.orders.length > 0 ? (
+                  data.orders.slice(0, 5).map((order, index) => (
                     <Link
                       key={order._id}
                       href={`/business/orders/${order._id}`}
@@ -438,8 +412,8 @@ export default function BusinessDashboard() {
                           {getCustomerName(order)}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {order.items.length}{" "}
-                          {order.items.length === 1 ? "item" : "items"}
+                          {order.items?.length || 0}{" "}
+                          {order.items?.length === 1 ? "item" : "items"}
                         </p>
                       </div>
                       <div className="text-right">
@@ -465,7 +439,7 @@ export default function BusinessDashboard() {
                 )}
               </div>
 
-              {stats.lowStock > 0 && (
+              {lowStockCount > 0 && (
                 <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6 border border-emerald-100">
                   <div className="flex items-center gap-3 mb-3">
                     <BarChart3 className="text-emerald-800" size={24} />
@@ -475,13 +449,13 @@ export default function BusinessDashboard() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Low Stock Items</span>
                       <span className="font-bold text-amber-600">
-                        {stats.lowStock}
+                        {lowStockCount}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Total Products</span>
                       <span className="font-bold text-gray-900">
-                        {stats.totalProducts}
+                        {data.products.length}
                       </span>
                     </div>
                     <Link

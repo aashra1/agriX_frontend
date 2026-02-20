@@ -41,70 +41,111 @@ export interface UpdateCartItemData {
   quantity: number;
 }
 
-export const getCart = async (): Promise<{ success: boolean; cart: Cart }> => {
+export interface CartResponse {
+  success: boolean;
+  message?: string;
+  cart?: Cart;
+  count?: number;
+}
+
+export const getCart = async (): Promise<CartResponse> => {
   try {
     const response = await axiosInstance.get(API.CART.GET);
     return response.data;
   } catch (error: any) {
-    throw error;
+    console.error("Error fetching cart:", error);
+    return {
+      success: false,
+      message:
+        error?.response?.data?.message ||
+        error.message ||
+        "Failed to fetch cart",
+    };
   }
 };
 
-export const addToCart = async (
-  data: AddToCartData,
-): Promise<{ success: boolean; message: string; cart: Cart }> => {
+export const addToCart = async (data: AddToCartData): Promise<CartResponse> => {
   try {
     const response = await axiosInstance.post(API.CART.ADD, data);
     return response.data;
   } catch (error: any) {
-    throw error;
+    console.error("Error adding to cart:", error);
+    return {
+      success: false,
+      message:
+        error?.response?.data?.message ||
+        error.message ||
+        "Failed to add to cart",
+    };
   }
 };
 
 export const updateCartItem = async (
   productId: string,
   data: UpdateCartItemData,
-): Promise<{ success: boolean; message: string; cart: Cart }> => {
+): Promise<CartResponse> => {
   try {
     const response = await axiosInstance.put(API.CART.UPDATE(productId), data);
     return response.data;
   } catch (error: any) {
-    throw error;
+    console.error("Error updating cart item:", error);
+    return {
+      success: false,
+      message:
+        error?.response?.data?.message ||
+        error.message ||
+        "Failed to update cart",
+    };
   }
 };
 
 export const removeFromCart = async (
   productId: string,
-): Promise<{ success: boolean; message: string; cart: Cart }> => {
+): Promise<CartResponse> => {
   try {
     const response = await axiosInstance.delete(API.CART.REMOVE(productId));
     return response.data;
   } catch (error: any) {
-    throw error;
+    console.error("Error removing from cart:", error);
+    return {
+      success: false,
+      message:
+        error?.response?.data?.message ||
+        error.message ||
+        "Failed to remove from cart",
+    };
   }
 };
 
-export const clearCart = async (): Promise<{
-  success: boolean;
-  message: string;
-  cart: Cart;
-}> => {
+export const clearCart = async (): Promise<CartResponse> => {
   try {
     const response = await axiosInstance.delete(API.CART.CLEAR);
     return response.data;
   } catch (error: any) {
-    throw error;
+    console.error("Error clearing cart:", error);
+    return {
+      success: false,
+      message:
+        error?.response?.data?.message ||
+        error.message ||
+        "Failed to clear cart",
+    };
   }
 };
 
-export const getCartCount = async (): Promise<{
-  success: boolean;
-  count: number;
-}> => {
+export const getCartCount = async (): Promise<CartResponse> => {
   try {
     const response = await axiosInstance.get(API.CART.COUNT);
     return response.data;
   } catch (error: any) {
-    throw error;
+    console.error("Error fetching cart count:", error);
+    return {
+      success: false,
+      count: 0,
+      message:
+        error?.response?.data?.message ||
+        error.message ||
+        "Failed to fetch cart count",
+    };
   }
 };

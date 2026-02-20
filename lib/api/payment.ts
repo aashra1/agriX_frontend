@@ -1,3 +1,4 @@
+// lib/api/payment.ts
 import axiosInstance from "./axios";
 import { API } from "./endpoints";
 
@@ -29,8 +30,8 @@ export interface Payment {
 
 export interface InitiateKhaltiResponse {
   success: boolean;
-  message: string;
-  data: {
+  message?: string;
+  data?: {
     payment: Payment;
     paymentUrl: string;
     pidx: string;
@@ -39,12 +40,23 @@ export interface InitiateKhaltiResponse {
 
 export interface VerifyKhaltiResponse {
   success: boolean;
-  message: string;
-  data: {
+  message?: string;
+  data?: {
     success: boolean;
     message: string;
     payment: Payment;
   };
+}
+
+export interface PaymentResponse {
+  success: boolean;
+  message?: string;
+  data?: Payment | Payment[];
+  payment?: Payment;
+  payments?: Payment[];
+  page?: number;
+  limit?: number;
+  count?: number;
 }
 
 export const initiateKhaltiPayment = async (
@@ -74,9 +86,21 @@ export const verifyKhaltiPayment = async (
   }
 };
 
+export const khaltiWebhook = async (
+  data: any,
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await axiosInstance.post(API.PAYMENT.WEBHOOK, data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error processing webhook:", error);
+    throw error;
+  }
+};
+
 export const getPaymentByOrderId = async (
   orderId: string,
-): Promise<{ success: boolean; data: Payment }> => {
+): Promise<PaymentResponse> => {
   try {
     const response = await axiosInstance.get(API.PAYMENT.GET_BY_ORDER(orderId));
     return response.data;
@@ -90,13 +114,7 @@ export const getUserPayments = async (
   page: number = 1,
   limit: number = 10,
   status?: string,
-): Promise<{
-  success: boolean;
-  page: number;
-  limit: number;
-  count: number;
-  data: Payment[];
-}> => {
+): Promise<PaymentResponse> => {
   try {
     let url = `${API.PAYMENT.GET_USER}?page=${page}&limit=${limit}`;
     if (status) {
@@ -114,13 +132,7 @@ export const getAllPayments = async (
   page: number = 1,
   limit: number = 10,
   status?: string,
-): Promise<{
-  success: boolean;
-  page: number;
-  limit: number;
-  count: number;
-  data: Payment[];
-}> => {
+): Promise<PaymentResponse> => {
   try {
     let url = `${API.PAYMENT.GET_ALL}?page=${page}&limit=${limit}`;
     if (status) {

@@ -4,6 +4,10 @@ import {
   registerBusiness,
   loginBusiness,
   uploadBusinessDocument,
+  getBusinessProfile,
+  updateBusinessProfile,
+  getAllBusinesses,
+  approveBusiness,
 } from "../api/business";
 import {
   setUserData,
@@ -91,6 +95,54 @@ export const handleUploadDocument = async (formData: FormData) => {
     return {
       success: false,
       message: err?.response?.data?.message || err.message || "Upload Failed",
+    };
+  }
+};
+
+export const handleGetBusinessProfile = async () => {
+  try {
+    const result = await getBusinessProfile();
+    return result;
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.response?.data?.message || "Failed to fetch profile",
+    };
+  }
+};
+
+export const handleUpdateBusinessProfile = async (formData: FormData) => {
+  try {
+    const result = await updateBusinessProfile(formData);
+    return result;
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.response?.data?.message || "Failed to update profile",
+    };
+  }
+};
+
+export const handleGetAllBusinesses = async () => {
+  try {
+    const result = await getAllBusinesses();
+    return result;
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.response?.data?.message || "Failed to fetch businesses",
+    };
+  }
+};
+
+export const handleApproveBusiness = async (businessId: string) => {
+  try {
+    const result = await approveBusiness(businessId);
+    return result;
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.response?.data?.message || "Failed to approve business",
     };
   }
 };

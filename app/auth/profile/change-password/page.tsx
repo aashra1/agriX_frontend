@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { API } from "@/lib/api/endpoints";
+import { handleChangePassword } from "@/lib/actions/auth-actions";
 
 const ChangePasswordSchema = z
   .object({
@@ -66,36 +66,28 @@ export default function ChangePassword() {
     setSnackbar({ message: "", type: null });
 
     try {
-      const res = await fetch(API.USER.CHANGE_PASSWORD, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          currentPassword: data.currentPassword,
-          newPassword: data.newPassword,
-          confirmPassword: data.confirmPassword,
-        }),
+      const result = await handleChangePassword({
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
       });
 
-      const json = await res.json();
-
-      if (!res.ok) {
+      if (result.success) {
         setSnackbar({
-          message: json.message || "Failed to change password",
+          message: "Password changed successfully! Redirecting...",
+          type: "success",
+        });
+
+        startTransition(() => {
+          setTimeout(() => {
+            router.push("/auth/profile");
+          }, 1500);
+        });
+      } else {
+        setSnackbar({
+          message: result.message || "Failed to change password",
           type: "error",
         });
-        return;
       }
-
-      setSnackbar({
-        message: "Password changed successfully! Redirecting...",
-        type: "success",
-      });
-
-      startTransition(() => {
-        setTimeout(() => {
-          router.push("/auth/profile");
-        }, 1500);
-      });
     } catch (err) {
       setSnackbar({
         message: "A network error occurred.",
@@ -149,7 +141,6 @@ export default function ChangePassword() {
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="w-full space-y-4">
-          {/* Current Password */}
           <div className="relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2">
               <Image
@@ -190,7 +181,6 @@ export default function ChangePassword() {
             )}
           </div>
 
-          {/* New Password */}
           <div className="relative pt-2">
             <div className="absolute left-4 top-[60%] -translate-y-1/2">
               <Image
@@ -229,7 +219,6 @@ export default function ChangePassword() {
             )}
           </div>
 
-          {/* Confirm Password */}
           <div className="relative pt-2">
             <div className="absolute left-4 top-[60%] -translate-y-1/2">
               <Image

@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 import { Upload, X, PlusCircle, ChevronRight } from "lucide-react";
 import BusinessSidebar from "../../_components/BusinessSidebar";
 import BusinessHeader from "../../_components/BusinessHeader";
-import { getAllCategories } from "@/lib/api/category";
-import { createProduct } from "@/lib/api/products";
+import { handleGetAllCategories } from "@/lib/actions/category-actions";
+import { handleCreateProduct } from "@/lib/actions/product-actions";
 
 type SnackbarState = {
   message: string;
@@ -59,19 +59,14 @@ export default function AddProductPage() {
       setCategoriesError(null);
 
       try {
-        const response = await getAllCategories();
-        console.log("Categories API response:", response);
+        const result = await handleGetAllCategories();
 
-        if (response.success && Array.isArray(response.categories)) {
-          setCategories(response.categories);
-        } else if (Array.isArray(response)) {
-          setCategories(response);
-        } else if (response.data && Array.isArray(response.data)) {
-          setCategories(response.data);
+        if (result.success && result.categories) {
+          setCategories(result.categories);
         } else {
-          console.error("Unexpected categories response format:", response);
+          console.error("Unexpected categories response format:", result);
           setCategories([]);
-          setCategoriesError("Invalid categories data format");
+          setCategoriesError(result.message || "Failed to load categories");
         }
       } catch (error: any) {
         console.error("Error fetching categories:", error);
@@ -183,8 +178,6 @@ export default function AddProductPage() {
         formData.fullDescription?.trim() || "",
       );
 
-      formDataToSend.append("business", businessId);
-
       if (productImageFile) {
         formDataToSend.append("image", productImageFile);
       }
@@ -194,18 +187,20 @@ export default function AddProductPage() {
         console.log(pair[0], pair[1]);
       }
 
-      const response = await createProduct(formDataToSend);
+      const result = await handleCreateProduct(formDataToSend);
 
-      console.log("Product added successfully:", response);
+      if (result.success) {
+        setSnackbar({
+          message: "Product added successfully! Redirecting...",
+          type: "success",
+        });
 
-      setSnackbar({
-        message: "Product added successfully! Redirecting...",
-        type: "success",
-      });
-
-      setTimeout(() => {
-        router.push("/business/products");
-      }, 1500);
+        setTimeout(() => {
+          router.push("/business/products");
+        }, 1500);
+      } else {
+        throw new Error(result.message || "Failed to add product");
+      }
     } catch (error: any) {
       console.error("Submission error:", error);
 

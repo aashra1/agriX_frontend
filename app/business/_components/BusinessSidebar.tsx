@@ -13,6 +13,7 @@ const sidebarIcons: { [key: string]: string } = {
   Orders: "/icons/orders.png",
   Customers: "/icons/customer.png",
   Profile: "/icons/user.png",
+  Payments: "/icons/wallet.png",
   default: "/icons/category.png",
 };
 
@@ -43,6 +44,11 @@ export default function BusinessSidebar() {
       href: "/business/customers",
       icon: sidebarIcons.Customers,
       label: "Customers",
+    },
+    {
+      href: "/business/payments", // Add this item
+      icon: sidebarIcons.Payments,
+      label: "Payments",
     },
     { href: "/business/profile", icon: sidebarIcons.Profile, label: "Profile" },
   ];

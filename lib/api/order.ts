@@ -1,3 +1,4 @@
+
 import axiosInstance from "./axios";
 import { API } from "./endpoints";
 
@@ -55,9 +56,22 @@ export interface UpdatePaymentStatusData {
   paymentStatus: "pending" | "paid" | "failed";
 }
 
+export interface OrderResponse {
+  success: boolean;
+  message?: string;
+  order?: Order;
+  orders?: Order[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
 export const createOrder = async (
   data: CreateOrderData,
-): Promise<{ success: boolean; message: string; order: Order }> => {
+): Promise<OrderResponse> => {
   try {
     const response = await axiosInstance.post(API.ORDER.CREATE, data);
     return response.data;
@@ -70,16 +84,7 @@ export const createOrder = async (
 export const getUserOrders = async (
   page: number = 1,
   limit: number = 10,
-): Promise<{
-  success: boolean;
-  orders: Order[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
-}> => {
+): Promise<OrderResponse> => {
   try {
     const response = await axiosInstance.get(
       `${API.ORDER.GET_USER}?page=${page}&limit=${limit}`,
@@ -91,9 +96,7 @@ export const getUserOrders = async (
   }
 };
 
-export const getOrderById = async (
-  orderId: string,
-): Promise<{ success: boolean; order: Order }> => {
+export const getOrderById = async (orderId: string): Promise<OrderResponse> => {
   try {
     const response = await axiosInstance.get(API.ORDER.GET_BY_ID(orderId));
     return response.data;
@@ -106,16 +109,7 @@ export const getOrderById = async (
 export const getBusinessOrders = async (
   page: number = 1,
   limit: number = 10,
-): Promise<{
-  success: boolean;
-  orders: Order[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
-}> => {
+): Promise<OrderResponse> => {
   try {
     const response = await axiosInstance.get(
       `${API.ORDER.GET_BUSINESS}?page=${page}&limit=${limit}`,
@@ -130,7 +124,7 @@ export const getBusinessOrders = async (
 export const updateOrderStatus = async (
   orderId: string,
   data: UpdateOrderStatusData,
-): Promise<{ success: boolean; message: string; order: Order }> => {
+): Promise<OrderResponse> => {
   try {
     const response = await axiosInstance.put(
       API.ORDER.UPDATE_STATUS(orderId),
@@ -146,7 +140,7 @@ export const updateOrderStatus = async (
 export const updatePaymentStatus = async (
   orderId: string,
   data: UpdatePaymentStatusData,
-): Promise<{ success: boolean; message: string; order: Order }> => {
+): Promise<OrderResponse> => {
   try {
     const response = await axiosInstance.put(
       API.ORDER.UPDATE_PAYMENT(orderId),

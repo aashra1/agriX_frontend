@@ -27,13 +27,11 @@ import {
 } from "lucide-react";
 import BusinessSidebar from "../_components/BusinessSidebar";
 import BusinessHeader from "../_components/BusinessHeader";
-import { getBusinessOrders, updateOrderStatus } from "@/lib/api/order";
-
-// Import the Order type from the API
-import { Order as ApiOrder } from "@/lib/api/order";
-
-// Use the imported type directly
-type Order = ApiOrder;
+import {
+  handleGetBusinessOrders,
+  handleUpdateOrderStatus,
+} from "@/lib/actions/order-actions";
+import { Order } from "@/lib/api/order";
 
 type Pagination = {
   page: number;
@@ -42,7 +40,6 @@ type Pagination = {
   pages: number;
 };
 
-// Type guard function to check if user is an object
 function isUserObject(user: any): user is {
   _id: string;
   fullName?: string;
@@ -101,7 +98,7 @@ const getPaymentStatusColor = (status: string) => {
 
 export default function BusinessOrdersPage() {
   const router = useRouter();
-  const { user, businessId, loading: authLoading } = useAuth();
+  const { businessId, loading: authLoading } = useAuth();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,12 +140,22 @@ export default function BusinessOrdersPage() {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        const response = await getBusinessOrders(
+        const result = await handleGetBusinessOrders(
           pagination.page,
           pagination.limit,
         );
-        setOrders(response.orders);
-        setPagination(response.pagination);
+
+        if (result.success && result.orders) {
+          setOrders(result.orders);
+          if (result.pagination) {
+            setPagination(result.pagination);
+          }
+        } else {
+          setSnackbar({
+            message: result.message || "Failed to load orders",
+            type: "error",
+          });
+        }
       } catch (error: any) {
         console.error("Error fetching orders:", error);
         setSnackbar({
@@ -164,6 +171,39 @@ export default function BusinessOrdersPage() {
       fetchOrders();
     }
   }, [businessId, pagination.page]);
+
+  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+    setUpdatingOrderId(orderId);
+    try {
+      const result = await handleUpdateOrderStatus(orderId, {
+        orderStatus: newStatus as any,
+      });
+
+      if (result.success && result.order) {
+        setOrders(
+          orders.map((order) => (order._id === orderId ? result.order : order)),
+        );
+
+        setSnackbar({
+          message: `Order status updated to ${newStatus}`,
+          type: "success",
+        });
+      } else {
+        setSnackbar({
+          message: result.message || "Failed to update order status",
+          type: "error",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error updating order status:", error);
+      setSnackbar({
+        message: error.message || "Failed to update order status",
+        type: "error",
+      });
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-NP", {
@@ -188,35 +228,6 @@ export default function BusinessOrdersPage() {
     if (!imagePath) return null;
     const fileName = imagePath.split(/[\\/]/).pop();
     return `${baseUrl}/uploads/product-images/${fileName}`;
-  };
-
-  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
-    setUpdatingOrderId(orderId);
-    try {
-      await updateOrderStatus(orderId, { orderStatus: newStatus as any });
-
-      // Update local state
-      setOrders(
-        orders.map((order) =>
-          order._id === orderId
-            ? { ...order, orderStatus: newStatus as any }
-            : order,
-        ),
-      );
-
-      setSnackbar({
-        message: `Order status updated to ${newStatus}`,
-        type: "success",
-      });
-    } catch (error: any) {
-      console.error("Error updating order status:", error);
-      setSnackbar({
-        message: error.message || "Failed to update order status",
-        type: "error",
-      });
-    } finally {
-      setUpdatingOrderId(null);
-    }
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -280,7 +291,6 @@ export default function BusinessOrdersPage() {
         <BusinessHeader searchPlaceholder="Search orders by ID, customer..." />
 
         <div className="p-8 max-w-7xl mx-auto">
-          {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
@@ -308,7 +318,6 @@ export default function BusinessOrdersPage() {
             </div>
           </div>
 
-          {/* Search and Filters */}
           <div className="mb-6 space-y-4">
             <div className="relative">
               <Search
@@ -380,7 +389,6 @@ export default function BusinessOrdersPage() {
                   className="bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300"
                 >
                   <div className="p-6">
-                    {/* Order Header */}
                     <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                       <div className="flex items-center gap-4">
                         <span className="text-sm font-mono text-gray-500">
@@ -415,7 +423,6 @@ export default function BusinessOrdersPage() {
                       </div>
                     </div>
 
-                    {/* Customer Info - Handle both string and object */}
                     <div className="mb-4 p-3 bg-gray-50 rounded-xl">
                       {isUserObject(order.user) ? (
                         <>
@@ -447,7 +454,6 @@ export default function BusinessOrdersPage() {
                       )}
                     </div>
 
-                    {/* Order Items Preview */}
                     <div className="mb-4">
                       <div className="flex items-center gap-4 overflow-x-auto pb-2">
                         {order.items.map((item, index) => (
@@ -485,7 +491,6 @@ export default function BusinessOrdersPage() {
                       </div>
                     </div>
 
-                    {/* Order Footer */}
                     <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-gray-100">
                       <div className="flex items-center gap-4 text-sm">
                         <span className="text-gray-600">Total:</span>
@@ -520,7 +525,6 @@ export default function BusinessOrdersPage() {
                       </div>
                     </div>
 
-                    {/* Tracking Number if available */}
                     {order.trackingNumber && (
                       <div className="mt-3 text-xs text-gray-500 flex items-center gap-1">
                         <Truck size={12} />
@@ -531,7 +535,6 @@ export default function BusinessOrdersPage() {
                 </div>
               ))}
 
-              {/* Pagination */}
               {pagination.pages > 1 && (
                 <div className="flex justify-center gap-2 mt-8">
                   <button

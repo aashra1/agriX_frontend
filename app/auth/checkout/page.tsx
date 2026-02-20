@@ -26,8 +26,9 @@ import {
 } from "lucide-react";
 import UserSidebar from "../_components/UserSidebar";
 import UserHeader from "../_components/UserHeader";
-import { getCart } from "@/lib/api/cart";
-import { createOrder } from "@/lib/api/order";
+import { handleGetCart } from "@/lib/actions/cart-actions";
+import { handleCreateOrder } from "@/lib/actions/order-actions";
+import { handleInitiateKhaltiPayment } from "@/lib/actions/payment-actions";
 
 type CartItem = {
   _id: string;
@@ -144,8 +145,15 @@ export default function CheckoutPage() {
     const fetchCart = async () => {
       try {
         setLoading(true);
-        const response = await getCart();
-        setCart(response.cart);
+        const result = await handleGetCart();
+        if (result.success && result.cart) {
+          setCart(result.cart);
+        } else {
+          setSnackbar({
+            message: result.message || "Failed to load cart",
+            type: "error",
+          });
+        }
       } catch (error: any) {
         console.error("Error fetching cart:", error);
         setSnackbar({
@@ -245,16 +253,23 @@ export default function CheckoutPage() {
         paymentMethod: "cod",
       };
 
-      const response = await createOrder(orderData);
+      const result = await handleCreateOrder(orderData);
 
-      setSnackbar({
-        message: "Order placed successfully!",
-        type: "success",
-      });
+      if (result.success && result.order) {
+        setSnackbar({
+          message: "Order placed successfully!",
+          type: "success",
+        });
 
-      setTimeout(() => {
-        router.push(`/auth/orders/${response.order._id}`);
-      }, 1500);
+        setTimeout(() => {
+          router.push(`/auth/orders/${result.order._id}`);
+        }, 1500);
+      } else {
+        setSnackbar({
+          message: result.message || "Failed to place order",
+          type: "error",
+        });
+      }
     } catch (error: any) {
       console.error("Error placing order:", error);
       setSnackbar({
@@ -271,9 +286,6 @@ export default function CheckoutPage() {
     try {
       if (!cart) return;
 
-      // No need to get token from localStorage anymore
-      // The cookie will be sent automatically with the request
-
       const orderData: CreateOrderData = {
         items: cart.items.map((item) => ({
           product: item.product._id,
@@ -288,38 +300,25 @@ export default function CheckoutPage() {
         paymentMethod: "khalti",
       };
 
-      const orderResponse = await createOrder(orderData);
-      const order = orderResponse.order;
+      const orderResult = await handleCreateOrder(orderData);
 
-      // Use the API route we just created
-      const initiateResponse = await fetch("/api/payment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderId: order._id,
-          amount: calculateTotal(),
-          returnUrl: `${window.location.origin}/auth/payment/verify`,
-        }),
-      });
-
-      const initiateData = await initiateResponse.json();
-
-      if (!initiateResponse.ok) {
-        if (initiateResponse.status === 401) {
-          // Redirect to login if unauthorized
-          router.push("/auth/login?redirect=checkout");
-          return;
-        }
-        throw new Error(initiateData.message || "Failed to initiate payment");
+      if (!orderResult.success || !orderResult.order) {
+        throw new Error(orderResult.message || "Failed to create order");
       }
 
-      if (initiateData.success) {
-        window.location.href = initiateData.data.paymentUrl;
+      const order = orderResult.order;
+
+      const paymentResult = await handleInitiateKhaltiPayment({
+        orderId: order._id,
+        amount: calculateTotal(),
+        returnUrl: `${window.location.origin}/auth/payment/verify`,
+      });
+
+      if (paymentResult.success && paymentResult.data?.paymentUrl) {
+        window.location.href = paymentResult.data.paymentUrl;
       } else {
         throw new Error(
-          initiateData.message || "Failed to initiate Khalti payment",
+          paymentResult.message || "Failed to initiate Khalti payment",
         );
       }
     } catch (error: any) {
