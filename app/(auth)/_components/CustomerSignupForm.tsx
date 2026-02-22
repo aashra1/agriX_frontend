@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useState, useCallback, useEffect } from "react";
 import { RegisterFields, RegisterSchema } from "../authSchema";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
-import { handleRegister } from "@/lib/actions/auth-actions";
+import { handleRegister } from "@/lib/actions/user-actions";
 
 type SnackbarState = { message: string; type: "success" | "error" | null };
 

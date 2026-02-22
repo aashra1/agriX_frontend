@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoginFields, LoginSchema } from "../authSchema";
-import { handleLogin } from "@/lib/actions/auth-actions";
+import { handleLogin } from "@/lib/actions/user-actions";
 
 type SnackbarState = {
   message: string;

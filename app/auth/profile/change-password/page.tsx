@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { handleChangePassword } from "@/lib/actions/auth-actions";
+import { handleChangePassword } from "@/lib/actions/user-actions";
 
 const ChangePasswordSchema = z
   .object({

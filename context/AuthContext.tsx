@@ -1,13 +1,16 @@
 "use client";
+
 import {
   createContext,
   useContext,
   useState,
   ReactNode,
   useEffect,
+  useRef,
 } from "react";
-import { clearAuthCookies, getAuthToken, getUserData } from "@/lib/cookie";
-import { useRouter } from "next/navigation";
+import { clearAuthCookies } from "@/lib/cookie";
+import { getAuthSession } from "@/lib/actions/auth-actions";
+import { useRouter, usePathname } from "next/navigation";
 
 interface AuthContextProps {
   isAuthenticated: boolean;
@@ -27,31 +30,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
+  const initialLoadDone = useRef(false);
 
   const checkAuth = async () => {
     try {
-      const token = await getAuthToken();
-      const userData = await getUserData();
+      const { token, userData } = await getAuthSession();
 
-      // Log the user data to see its structure
-      console.log("Raw user data from cookie:", userData);
-
-      // Check if userData exists and has the business structure
       if (userData) {
-        // The user data might be nested or direct
-        let processedUserData = userData;
-
-        // If the response has a business property (from login response)
-        if (userData.business) {
-          processedUserData = userData.business;
-        }
-
-        // If the response has a data property
-        if (userData.data) {
-          processedUserData = userData.data;
-        }
-
-        setUser(processedUserData);
+        setUser(userData);
         setIsAuthenticated(!!token);
       } else {
         setUser(null);
@@ -67,8 +54,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    checkAuth();
+    checkAuth().then(() => {
+      initialLoadDone.current = true;
+    });
   }, []);
+
+  useEffect(() => {
+    if (initialLoadDone.current) {
+      checkAuth();
+    }
+  }, [pathname]);
 
   const logout = async () => {
     try {
@@ -81,7 +76,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Derive businessId from user object - check multiple possible locations
   const businessId = user?._id || user?.id || null;
 
   return (
@@ -97,7 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         businessId,
       }}
     >
-      {children}
+      {loading ? null : children}
     </AuthContext.Provider>
   );
 };
